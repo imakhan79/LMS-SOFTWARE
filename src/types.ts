@@ -1,0 +1,106 @@
+export interface Course {
+  id: string;
+  title: string;
+  category: string;
+  difficulty: "Beginner" | "Intermediate" | "Advanced";
+  price: number;
+  published: boolean;
+  instructorId: string;
+  instructorName: string;
+  description: string;
+  outcomes: string[];
+  thumbnail: string;
+  modules: {
+    id: string;
+    title: string;
+    lessons: {
+      id: string;
+      title: string;
+      type: "video" | "doc" | "quiz";
+      duration: string;
+      contentUrl?: string;
+      scormSupport?: boolean;
+    }[];
+  }[];
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: "superadmin" | "admin" | "instructor" | "student" | "parent" | "corporate";
+  parentOf?: string;
+  department?: string;
+  xp: number;
+  badges: string[];
+}
+
+export interface Enrollment {
+  id: string;
+  studentId: string;
+  courseId: string;
+  progress: number;
+  notes: CourseNote[];
+  completed: boolean;
+}
+
+export interface CourseNote {
+  id: string;
+  lessonId: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface ExamSubmission {
+  id: string;
+  studentId: string;
+  courseId: string;
+  quizTitle: string;
+  score: number;
+  passed: boolean;
+  gradedAt: string;
+  answers: Record<string, string>;
+  faceVerified?: boolean;
+}
+
+export interface AssignmentSubmission {
+  id: string;
+  courseId: string;
+  lessonId: string;
+  studentId: string;
+  studentName: string;
+  fileName: string;
+  textContent?: string;
+  grade?: string;
+  feedback?: string;
+  submittedAt: string;
+}
+
+export interface DiscussionMessage {
+  id: string;
+  courseId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface AuditLog {
+  id: string;
+  user: string;
+  action: string;
+  ip: string;
+  status: string;
+  timestamp: string;
+}
+
+export interface Transaction {
+  id: string;
+  studentEmail: string;
+  courseTitle: string;
+  amount: number;
+  status: string;
+  gateway: string;
+  date: string;
+}

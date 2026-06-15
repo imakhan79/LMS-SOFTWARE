@@ -1,0 +1,6 @@
+{
+  "name": "Enterprise LMS Portal",
+  "description": "A high-performance, enterprise-grade Learning Management System with Super Admin, Admin, Instructor, Student, Parent, and Corporate training dashboards, featuring gamification, course marketplace, and AI-powered study aids.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
