@@ -297,7 +297,7 @@ export default function InstructorDashboard({
 
         <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-xs">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Accrued Earnings</div>
-          <p className="text-2xl font-sans font-bold text-gray-900 mt-1">$4,850.00</p>
+          <p className="text-2xl font-sans font-bold text-gray-900 mt-1">Rs. 4,850.00</p>
           <div className="text-[10px] text-green-600 font-semibold">Stripe Disbursements Cleared</div>
         </div>
 

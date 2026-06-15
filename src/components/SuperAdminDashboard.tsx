@@ -138,7 +138,7 @@ export default function SuperAdminDashboard({
                 <span className="text-xs font-semibold uppercase tracking-wider">Total Revenue</span>
                 <DollarSign className="w-5 h-5 text-green-500" />
               </div>
-              <p className="text-2xl font-sans font-bold text-gray-900">${stats.totalRevenue || 497}</p>
+              <p className="text-2xl font-sans font-bold text-gray-900">Rs. {stats.totalRevenue || 497}</p>
               <div className="text-xs text-green-600 font-semibold mt-1">↑ 24% vs Last Month</div>
             </div>
 

@@ -355,7 +355,7 @@ export default function Marketplace({
                         referrerPolicy="no-referrer"
                       />
                       <span className="absolute top-3 right-3 bg-gray-900/80 text-white font-mono text-xs font-bold px-2.5 py-1 rounded-sm">
-                        ${course.price}
+                        Rs. {course.price}
                       </span>
 
                       {/* Score display */}
@@ -444,7 +444,7 @@ export default function Marketplace({
                   <p className="text-xs text-gray-400 leading-tight mt-0.5">{plan.description}</p>
                 </div>
                 <div className="font-sans font-bold text-xl text-gray-800">
-                  ${plan.price} <span className="text-xs text-gray-400 font-medium">/ month</span>
+                  Rs. {plan.price} <span className="text-xs text-gray-400 font-medium">/ month</span>
                 </div>
                 <button 
                   onClick={() => alert("Enterprise sandbox subscription complete. Unlimited access granted.")}
@@ -525,7 +525,7 @@ export default function Marketplace({
                   <div className="bg-gray-50 p-3.5 rounded border border-gray-100 space-y-1.5">
                     <div className="flex justify-between text-gray-500 font-medium">
                       <span>Course Standard Cost:</span>
-                      <span className="font-mono">${cartCourse.price}</span>
+                      <span className="font-mono">Rs. {cartCourse.price}</span>
                     </div>
                     {appliedDiscount > 0 && (
                       <div className="flex justify-between text-red-600 font-bold">
@@ -534,9 +534,9 @@ export default function Marketplace({
                       </div>
                     )}
                     <div className="flex justify-between text-gray-900 font-bold border-t border-gray-200 pt-1.5">
-                      <span>Total Invoice Due (USD):</span>
+                      <span>Total Invoice Due (PKR):</span>
                       <span className="font-mono text-sm text-blue-600">
-                        ${appliedDiscount > 0 ? cartCourse.price - (cartCourse.price * appliedDiscount) / 100 : cartCourse.price}
+                        Rs. {appliedDiscount > 0 ? cartCourse.price - (cartCourse.price * appliedDiscount) / 100 : cartCourse.price}
                       </span>
                     </div>
                   </div>

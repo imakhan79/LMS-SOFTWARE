@@ -304,7 +304,7 @@ export default function AdminDashboard({
             <div className="bg-white p-5 rounded-xl border border-gray-150 shadow-xs flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-400 font-bold uppercase block">Gross Tuition Billing</span>
-                <span className="text-xl font-bold font-sans text-gray-900">${totalTuitionRevenue.toLocaleString()}</span>
+                <span className="text-xl font-bold font-sans text-gray-900">Rs. {totalTuitionRevenue.toLocaleString()}</span>
                 <span className="text-[9px] text-emerald-600 font-semibold block">★ Total revenue books</span>
               </div>
               <div className="bg-blue-50 p-2.5 rounded-lg border border-blue-100">
@@ -315,7 +315,7 @@ export default function AdminDashboard({
             <div className="bg-white p-5 rounded-xl border border-gray-150 shadow-xs flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-400 font-bold uppercase block">Recovered To-Date</span>
-                <span className="text-xl font-bold font-sans text-emerald-600">${actualCollectedTuition.toLocaleString()}</span>
+                <span className="text-xl font-bold font-sans text-emerald-600">Rs. {actualCollectedTuition.toLocaleString()}</span>
                 <span className="text-[9px] text-gray-400 font-semibold block">Liquidity in vault desk</span>
               </div>
               <div className="bg-emerald-50 p-2.5 rounded-lg border border-emerald-100">
@@ -326,7 +326,7 @@ export default function AdminDashboard({
             <div className="bg-white p-5 rounded-xl border border-gray-150 shadow-xs flex items-center justify-between">
               <div className="space-y-1">
                 <span className="text-[10px] text-gray-400 font-bold uppercase block">Outstanding Tuition</span>
-                <span className="text-xl font-bold font-sans text-rose-500">${totalOutstandingTuition.toLocaleString()}</span>
+                <span className="text-xl font-bold font-sans text-rose-500">Rs. {totalOutstandingTuition.toLocaleString()}</span>
                 <span className="text-[9px] text-gray-400 font-semibold block">Split installments to collect</span>
               </div>
               <div className="bg-rose-50 p-2.5 rounded-lg border border-rose-100">
@@ -388,14 +388,14 @@ export default function AdminDashboard({
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                   <div>
                     <span className="text-[10px] text-gray-400 block leading-none">Paid Amount</span>
-                    <span className="font-bold font-mono">${actualCollectedTuition}</span>
+                    <span className="font-bold font-mono">Rs. {actualCollectedTuition}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
                   <div>
                     <span className="text-[10px] text-gray-400 block leading-none">Pending Dues</span>
-                    <span className="font-bold font-mono">${totalOutstandingTuition}</span>
+                    <span className="font-bold font-mono">Rs. {totalOutstandingTuition}</span>
                   </div>
                 </div>
               </div>
@@ -535,7 +535,7 @@ export default function AdminDashboard({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tuition Price ($)</label>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tuition Price (PKR)</label>
                       <input 
                         type="number" 
                         value={newPrice}
@@ -579,7 +579,7 @@ export default function AdminDashboard({
                           <span className="text-[9px] font-mono uppercase font-bold text-blue-700">{course.id}</span>
                         </div>
                         <h4 className="font-bold text-gray-900 text-sm mt-1">{course.title}</h4>
-                        <p className="text-[10.5px] text-gray-400 mt-0.5">Faculty Assessor: {course.instructorName} | Standard Tuition Cost: <strong>${course.price}</strong></p>
+                        <p className="text-[10.5px] text-gray-400 mt-0.5">Faculty Assessor: {course.instructorName} | Standard Tuition Cost: <strong>Rs. {course.price}</strong></p>
                       </div>
 
                       <div className="flex gap-1.5 shrink-0">
@@ -756,9 +756,9 @@ export default function AdminDashboard({
                           <span className="text-[9px] text-gray-400 block break-all leading-none mt-0.5">{fac.studentEmail}</span>
                         </td>
                         <td className="py-3 pr-2 truncate max-w-[120px] text-gray-600" title={fac.courseTitle}>{fac.courseTitle}</td>
-                        <td className="py-3 pr-1 font-mono font-bold">${fac.totalFee}</td>
-                        <td className="py-3 pr-1 font-mono text-emerald-600 font-bold">${fac.paidAmount}</td>
-                        <td className="py-3 pr-1 font-mono text-rose-500 font-bold">${fac.outstandingAmount}</td>
+                        <td className="py-3 pr-1 font-mono font-bold">Rs. {fac.totalFee}</td>
+                        <td className="py-3 pr-1 font-mono text-emerald-600 font-bold">Rs. {fac.paidAmount}</td>
+                        <td className="py-3 pr-1 font-mono text-rose-500 font-bold">Rs. {fac.outstandingAmount}</td>
                         <td className="py-3">
                           <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded leading-none ${
                             fac.status === "Fully Paid" ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
@@ -802,8 +802,8 @@ export default function AdminDashboard({
                     <div className="bg-slate-50 p-3 rounded-lg text-xs space-y-1.5">
                       <span className="font-semibold text-gray-700 block leading-tight">Course: <strong className="text-gray-900">{selectedFeeAccount.courseTitle}</strong></span>
                       <div className="flex justify-between font-mono text-[10.5px]">
-                        <span>Tuition Total: <strong>${selectedFeeAccount.totalFee}</strong></span>
-                        <span className="text-rose-500">Left Due: <strong>${selectedFeeAccount.outstandingAmount}</strong></span>
+                        <span>Tuition Total: <strong>Rs. {selectedFeeAccount.totalFee}</strong></span>
+                        <span className="text-rose-500">Left Due: <strong>Rs. {selectedFeeAccount.outstandingAmount}</strong></span>
                       </div>
                     </div>
 
@@ -814,7 +814,7 @@ export default function AdminDashboard({
                         <div key={inst.id} className="p-3 bg-white border border-gray-150 rounded-lg flex justify-between items-center text-xs shadow-3xs hover:border-gray-200 select-all">
                           <div>
                             <span className="font-bold text-gray-900 block text-[11px]">Installment #{inst.installmentNo}</span>
-                            <span className="text-[9.5px] text-gray-400 font-semibold block">Amt Due: <strong className="font-mono text-gray-800">${inst.amount}</strong></span>
+                            <span className="text-[9.5px] text-gray-400 font-semibold block">Amt Due: <strong className="font-mono text-gray-800">Rs. {inst.amount}</strong></span>
                             <span className="text-[9px] text-gray-400 block mt-0.5">Due: {inst.dueDate} {inst.paidDate && `| Paid: ${inst.paidDate}`}</span>
                           </div>
 
@@ -850,7 +850,7 @@ export default function AdminDashboard({
 
                     {/* Invoice print preview emulation */}
                     <button
-                      onClick={() => alert(`--------------------------------------------------\n              OFFICIAL TUITION RECEIPT             \n--------------------------------------------------\nReference ID: ${selectedFeeAccount.id}\nStudent Name: ${selectedFeeAccount.studentName}\nEmail: ${selectedFeeAccount.studentEmail}\nCourse: ${selectedFeeAccount.courseTitle}\nTotal Paid Tuition: $${selectedFeeAccount.paidAmount}\nPending Outstanding: $${selectedFeeAccount.outstandingAmount}\nStatus: ${selectedFeeAccount.status}\n--------------------------------------------------\n       Thank you for choosing Enterprise LMS       \n--------------------------------------------------`)}
+                      onClick={() => alert(`--------------------------------------------------\n              OFFICIAL TUITION RECEIPT             \n--------------------------------------------------\nReference ID: ${selectedFeeAccount.id}\nStudent Name: ${selectedFeeAccount.studentName}\nEmail: ${selectedFeeAccount.studentEmail}\nCourse: ${selectedFeeAccount.courseTitle}\nTotal Paid Tuition: Rs. ${selectedFeeAccount.paidAmount}\nPending Outstanding: Rs. ${selectedFeeAccount.outstandingAmount}\nStatus: ${selectedFeeAccount.status}\n--------------------------------------------------\n       Thank you for choosing Enterprise LMS       \n--------------------------------------------------`)}
                       className="w-full mt-2.5 py-1.5 border border-slate-900 hover:bg-slate-50 text-black text-[10px] font-bold rounded flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Eye className="w-3.5 h-3.5" /> Generate Billing Receipt
@@ -919,14 +919,14 @@ export default function AdminDashboard({
                     className="w-full bg-white border border-gray-250 text-xs px-2 py-1.5 rounded outline-hidden text-gray-700 cursor-pointer"
                   >
                     {courses.map(c => (
-                      <option key={c.id} value={c.id}>{c.title} (${c.price})</option>
+                      <option key={c.id} value={c.id}>{c.title} (Rs. {c.price})</option>
                     ))}
                   </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[9.5px] uppercase font-bold text-gray-400">Initial Deposit ($)</label>
+                    <label className="text-[9.5px] uppercase font-bold text-gray-400">Initial Deposit (PKR)</label>
                     <input
                       type="number"
                       value={walkinDeposit}

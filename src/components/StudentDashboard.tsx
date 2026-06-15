@@ -917,15 +917,15 @@ export default function StudentDashboard({
                         <div className="grid grid-cols-3 gap-2 text-center text-[11px] p-2 bg-slate-50 border border-slate-100/50 rounded-lg">
                           <div>
                             <span className="text-[9px] text-gray-400 block font-bold">TUITION BOOK</span>
-                            <span className="font-extrabold text-gray-900 font-mono">${ledger.totalFee}</span>
+                            <span className="font-extrabold text-gray-900 font-mono">Rs. {ledger.totalFee}</span>
                           </div>
                           <div>
                             <span className="text-[9px] text-gray-400 block font-bold">PAID COUPE</span>
-                            <span className="font-extrabold text-emerald-600 font-mono">${ledger.paidAmount}</span>
+                            <span className="font-extrabold text-emerald-600 font-mono">Rs. {ledger.paidAmount}</span>
                           </div>
                           <div>
                             <span className="text-[9px] text-gray-400 block font-bold">OUTSTANDING</span>
-                            <span className="font-extrabold text-rose-500 font-mono">${ledger.outstandingAmount}</span>
+                            <span className="font-extrabold text-rose-500 font-mono">Rs. {ledger.outstandingAmount}</span>
                           </div>
                         </div>
 
@@ -934,7 +934,7 @@ export default function StudentDashboard({
                           {ledger.installments.map((inst: any) => (
                             <div key={inst.id} className="p-2.5 bg-white border border-gray-150 rounded-lg text-xs flex justify-between items-center select-all shadow-3xs hover:border-gray-200">
                               <div>
-                                <span className="font-bold text-gray-800">Installment #{inst.installmentNo} - <strong className="font-mono text-gray-900">${inst.amount}</strong></span>
+                                <span className="font-bold text-gray-800">Installment #{inst.installmentNo} - <strong className="font-mono text-gray-900">Rs. {inst.amount}</strong></span>
                                 <span className="text-[9px] text-gray-400 block">Due date: {inst.dueDate} {inst.paidDate && `| Paid: ${inst.paidDate}`}</span>
                               </div>
 
@@ -971,7 +971,7 @@ export default function StudentDashboard({
                         <button onClick={() => setActiveBillInst(null)} className="text-xs text-slate-400 hover:text-white">Close [x]</button>
                       </div>
 
-                      <p className="text-[10.5px] text-slate-300">Authorize installment payment of <strong className="font-mono text-white">${activeBillInst.amount}</strong> via credit card.</p>
+                      <p className="text-[10.5px] text-slate-300">Authorize installment payment of <strong className="font-mono text-white">Rs. {activeBillInst.amount}</strong> via credit card.</p>
 
                       {paymentSuccess ? (
                         <div className="p-3 bg-emerald-950/60 border border-emerald-500 rounded text-emerald-400 text-[11px] font-bold flex items-center justify-center gap-1">
@@ -995,7 +995,7 @@ export default function StudentDashboard({
                             disabled={processingPayment}
                             className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 font-bold rounded cursor-pointer text-xs"
                           >
-                            {processingPayment ? "Processing Gateway Transact..." : `Approve Charge of $${activeBillInst.amount}`}
+                            {processingPayment ? "Processing Gateway Transact..." : `Approve Charge of Rs. ${activeBillInst.amount}`}
                           </button>
                         </form>
                       )}
