@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { 
   BookOpen, Video, Award, RefreshCw, MessageSquare, Plus, Save, Play, ChevronRight,
-  Shield, Camera, CheckSquare, Sparkles, BookMarked, Printer, AlertTriangle, Eye, RefreshCcw, QrCode
+  Shield, Camera, CheckSquare, Sparkles, BookMarked, Printer, AlertTriangle, Eye, RefreshCcw, QrCode,
+  DollarSign, FileCheck
 } from "lucide-react";
 import { Course, Enrollment, DiscussionMessage, ExamSubmission, CourseNote } from "../types";
+import AITutorInterface from "./AITutorInterface";
 
 interface Props {
   courses: Course[];
@@ -56,6 +58,99 @@ export default function StudentDashboard({
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [scannedSession, setScannedSession] = useState<any | null>(null);
 
+  // ERP Invoicing & Written Assignment States
+  const [myFeeLedgers, setMyFeeLedgers] = useState<any[]>([]);
+  const [loadingMyFees, setLoadingMyFees] = useState(false);
+  const [activeBillInst, setActiveBillInst] = useState<{ ledgerId: string; installmentId: string; amount: number } | null>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  const [assignmentLessonSelect, setAssignmentLessonSelect] = useState("");
+  const [assignmentText, setAssignmentText] = useState("");
+  const [assignmentFile, setAssignmentFile] = useState("written_assignment.pdf");
+  const [uploadingAssignment, setUploadingAssignment] = useState(false);
+
+  const fetchMyBillingLedger = async () => {
+    setLoadingMyFees(true);
+    try {
+      const res = await fetch("/api/fees/ledgers");
+      const data = await res.json();
+      // Filter for Mercer's profile keys
+      const filtered = data.filter((f: any) => f.studentEmail === "student@lms.com" || f.studentEmail === "alex.mercer@lms.com");
+      setMyFeeLedgers(filtered);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMyFees(false);
+    }
+  };
+
+  const handlePayInstallmentOnline = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeBillInst) return;
+
+    setProcessingPayment(true);
+    setPaymentSuccess(false);
+
+    try {
+      const res = await fetch("/api/fees/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ledgerId: activeBillInst.ledgerId,
+          installmentId: activeBillInst.installmentId,
+          paymentMethod: "Stripe Online Card"
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPaymentSuccess(true);
+        setTimeout(() => {
+          setActiveBillInst(null);
+          setPaymentSuccess(false);
+          fetchMyBillingLedger();
+        }, 1500);
+      } else {
+        alert(data.error || "Online transaction rejected.");
+      }
+    } catch (err) {
+      alert("Error contacting remote billing gateway.");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handlePostStudentAssignment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignmentText.trim() || !assignmentLessonSelect) {
+      alert("Please choose a target lesson and draft your paper analysis.");
+      return;
+    }
+
+    setUploadingAssignment(true);
+    try {
+      const res = await fetch("/api/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: activeCourse?.id || "course-1",
+          lessonId: assignmentLessonSelect,
+          textContent: assignmentText,
+          fileName: assignmentFile || "written_assignment_backup.pdf"
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Completed assignment paper loaded and submitted to structural grading database! View progress directly on transcripts.");
+        setAssignmentText("");
+      }
+    } catch (e) {
+      alert("Error deploying coursework file.");
+    } finally {
+      setUploadingAssignment(false);
+    }
+  };
+
   const fetchStudentAttendanceRecords = async () => {
     try {
       const res = await fetch("/api/attendance/records?studentId=usr-s1");
@@ -68,6 +163,7 @@ export default function StudentDashboard({
 
   useEffect(() => {
     fetchStudentAttendanceRecords();
+    fetchMyBillingLedger();
   }, []);
 
   const handleVerifyAttendanceCode = async (codeToVerify: string) => {
@@ -128,18 +224,61 @@ export default function StudentDashboard({
           interests: selectedInterests
         })
       });
+      if (!res.ok) {
+        throw new Error(`Server responded with status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error("Server did not return JSON format");
+      }
       const data = await res.json();
-      if (data.recommendations) {
+      if (data && data.recommendations) {
         setRecommendations(data.recommendations);
       }
-      if (data.personalizedPath) {
+      if (data && data.personalizedPath) {
         setPersonalizedPath(data.personalizedPath);
       }
-      if (data.personalizedTopic) {
+      if (data && data.personalizedTopic) {
         setRecsTopic(data.personalizedTopic);
       }
     } catch (err) {
       console.error("Failed to load AI course recommendations:", err);
+      // Beautiful responsive fallback client-side recommendations so the UI is always functional
+      setRecommendations([
+        {
+          courseId: "course-1",
+          title: "Introduction to Artificial Intelligence",
+          category: "Artificial Intelligence",
+          difficulty: "Beginner",
+          matchScore: 92,
+          reason: "Perfect baseline matching your interest in AI. Teaches basic machine learning pipelines, deep learning paradigms, and model building.",
+          suggestedNextSteps: ["Start practice tasks in Module 1", "Engage with the interactive AI tutor"]
+        },
+        {
+          courseId: "course-3",
+          title: "Cloud Native Microservices Architecture",
+          category: "Cloud Computing",
+          difficulty: "Advanced",
+          matchScore: 84,
+          reason: "Matches your deep interest in advanced Cloud Computing. Helps you design scalable systems and learn continuous delivery.",
+          suggestedNextSteps: ["Study the zero-trust blueprint", "Start the practical chapter quiz"]
+        }
+      ]);
+      setRecsTopic(selectedInterests.join(" & ") + " (Dynamic Local Fallback)");
+      setPersonalizedPath({
+        title: `Custom Learning Plan: ${selectedInterests[0] || 'Modern Engineering'}`,
+        description: "Adaptive curriculum route designed to keep your studies moving forward smoothly during platform maintenance.",
+        modules: [
+          {
+            title: "Module 1: Foundational Frameworks",
+            topics: ["Core architectures and systems analysis", "Hands-on implementation and exercises"]
+          },
+          {
+            title: "Module 2: Advanced Design Patterns",
+            topics: ["High availability state resilience", "Secure data orchestration rules"]
+          }
+        ]
+      });
     } finally {
       setRecsLoading(false);
     }
@@ -174,6 +313,7 @@ export default function StudentDashboard({
   useEffect(() => {
     if (activeCourse && activeCourse.modules?.[0]?.lessons?.[0]) {
       setActiveLessonId(activeCourse.modules[0].lessons[0].id);
+      setAssignmentLessonSelect(activeCourse.modules[0].lessons[0].id);
     }
   }, [selectedEnrId, activeCourse]);
 
@@ -355,6 +495,7 @@ export default function StudentDashboard({
                 <button
                   key={enr.id}
                   onClick={() => setSelectedEnrId(enr.id)}
+                  aria-label={`Select student course ${matchedC.title}`}
                   className={`w-full text-left p-3.5 rounded-xl border text-xs transition-all block ${enr.id === selectedEnrId ? "bg-blue-50 border-blue-200 text-blue-700 font-bold" : "border-transparent text-gray-600 hover:bg-gray-50"}`}
                 >
                   <p className="line-clamp-1">{matchedC.title}</p>
@@ -735,6 +876,194 @@ export default function StudentDashboard({
                 )}
               </div>
 
+              {/* ======================================================== */}
+              {/* TUITION BILLING LEDGER & COURSEWORK SUBMISSIONS         */}
+              {/* ======================================================== */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6" id="assessments-erp-layer">
+                
+                {/* Tuition Dues & Ledger */}
+                <div className="bg-white p-5 rounded-xl border border-gray-150 shadow-xs space-y-4">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                    <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5">
+                      <DollarSign className="w-4 h-4 text-emerald-600" /> Tuition Installment Ledger
+                    </h3>
+                    <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      Alex Mercer Dues
+                    </span>
+                  </div>
+
+                  {myFeeLedgers.length === 0 ? (
+                    <div className="py-8 text-center text-gray-400 italic text-[11px] space-y-1">
+                      <div className="font-bold">No active dynamic invoice setup found.</div>
+                      <p className="not-italic text-gray-400 text-[10px]">Your fee profiles are enrolled by back-office receptionists automatically during intake.</p>
+                    </div>
+                  ) : (
+                    myFeeLedgers.map(ledger => (
+                      <div key={ledger.id} className="space-y-4">
+                        <div className="bg-slate-50 p-3 rounded-lg flex justify-between items-center text-xs border border-gray-100">
+                          <div>
+                            <span className="text-[10px] text-gray-400 uppercase block font-bold">Course Accounts</span>
+                            <span className="font-bold text-gray-900 leading-tight block">{ledger.courseTitle}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded block ${
+                              ledger.status === "Fully Paid" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                            }`}>
+                              {ledger.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-center text-[11px] p-2 bg-slate-50 border border-slate-100/50 rounded-lg">
+                          <div>
+                            <span className="text-[9px] text-gray-400 block font-bold">TUITION BOOK</span>
+                            <span className="font-extrabold text-gray-900 font-mono">${ledger.totalFee}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-gray-400 block font-bold">PAID COUPE</span>
+                            <span className="font-extrabold text-emerald-600 font-mono">${ledger.paidAmount}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-gray-400 block font-bold">OUTSTANDING</span>
+                            <span className="font-extrabold text-rose-500 font-mono">${ledger.outstandingAmount}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-[9.5px] font-bold text-gray-400 uppercase tracking-widest leading-none pt-1">Milestones Checklist</p>
+                          {ledger.installments.map((inst: any) => (
+                            <div key={inst.id} className="p-2.5 bg-white border border-gray-150 rounded-lg text-xs flex justify-between items-center select-all shadow-3xs hover:border-gray-200">
+                              <div>
+                                <span className="font-bold text-gray-800">Installment #{inst.installmentNo} - <strong className="font-mono text-gray-900">${inst.amount}</strong></span>
+                                <span className="text-[9px] text-gray-400 block">Due date: {inst.dueDate} {inst.paidDate && `| Paid: ${inst.paidDate}`}</span>
+                              </div>
+
+                              <div>
+                                {inst.status === "Paid" ? (
+                                  <span className="text-[9.5px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-250 px-2 py-0.5 rounded">
+                                    ✓ Received
+                                  </span>
+                                ) : (
+                                  <button
+                                    onClick={() => setActiveBillInst({
+                                      ledgerId: ledger.id,
+                                      installmentId: inst.id,
+                                      amount: inst.amount
+                                    })}
+                                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded cursor-pointer transition-all"
+                                  >
+                                    Pay Online
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+
+                  {/* Payment Simulator modal embedded inline logic */}
+                  {activeBillInst && (
+                    <div className="bg-slate-900 text-white p-4 rounded-xl border border-slate-800 space-y-3 animate-slide-in">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-blue-400">💳 Secure Stripe Payment Window</span>
+                        <button onClick={() => setActiveBillInst(null)} className="text-xs text-slate-400 hover:text-white">Close [x]</button>
+                      </div>
+
+                      <p className="text-[10.5px] text-slate-300">Authorize installment payment of <strong className="font-mono text-white">${activeBillInst.amount}</strong> via credit card.</p>
+
+                      {paymentSuccess ? (
+                        <div className="p-3 bg-emerald-950/60 border border-emerald-500 rounded text-emerald-400 text-[11px] font-bold flex items-center justify-center gap-1">
+                          <CheckSquare className="w-4 h-4 animate-bounce" /> Transaction Approved! Vault Syncing...
+                        </div>
+                      ) : (
+                        <form onSubmit={handlePayInstallmentOnline} className="space-y-2.5 text-xs text-left">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-[8.5px] uppercase font-bold text-slate-400">Card Number</span>
+                              <input type="text" placeholder="4242 •••• •••• 4242" className="w-full bg-slate-950 text-white border border-slate-800 p-1.5 rounded outline-none font-mono" required />
+                            </div>
+                            <div>
+                              <span className="text-[8.5px] uppercase font-bold text-slate-400">Expiry / CVV</span>
+                              <input type="text" placeholder="12/28 • 345" className="w-full bg-slate-950 text-white border border-slate-800 p-1.5 rounded outline-none font-mono" required />
+                            </div>
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={processingPayment}
+                            className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 font-bold rounded cursor-pointer text-xs"
+                          >
+                            {processingPayment ? "Processing Gateway Transact..." : `Approve Charge of $${activeBillInst.amount}`}
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Coursework Assignment uploads */}
+                <div className="bg-white p-5 rounded-xl border border-gray-150 shadow-xs space-y-4">
+                  <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                    <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5">
+                      <FileCheck className="w-4 h-4 text-blue-600" /> Assessor Assignments Submission
+                    </h3>
+                    <span className="text-[10px] uppercase font-bold text-gray-400">
+                      Syllabus Portfolio
+                    </span>
+                  </div>
+
+                  <form onSubmit={handlePostStudentAssignment} className="space-y-3.5 text-xs text-left">
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] uppercase font-bold text-gray-400 block">Select Active Syllabus Lesson Node</label>
+                      <select
+                        value={assignmentLessonSelect}
+                        onChange={e => setAssignmentLessonSelect(e.target.value)}
+                        className="w-full bg-white border border-gray-250 p-2 rounded outline-hidden text-gray-700 cursor-pointer text-[11px] font-medium"
+                      >
+                        {activeCourse?.modules?.flatMap(m => m.lessons || []).map(les => (
+                          <option key={les.id} value={les.id}>{les.title} ({les.type})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] uppercase font-bold text-gray-400 block">Draft Written Analysis / Executive Summary</label>
+                      <textarea
+                        value={assignmentText}
+                        onChange={e => setAssignmentText(e.target.value)}
+                        rows={5}
+                        placeholder="Draft your essay or code execution documentation here. This is committed immediately to the Assessor dashboard for professional grading..."
+                        className="w-full border border-gray-250 rounded p-2.5 bg-gray-50/50 leading-relaxed font-serif text-[11px]"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9.5px] uppercase font-bold text-gray-400 block">Simulate Certified PDF File Attachment</label>
+                      <input
+                        type="text"
+                        value={assignmentFile}
+                        onChange={e => setAssignmentFile(e.target.value)}
+                        className="w-full text-xs font-mono border border-gray-250 rounded p-1.5 bg-white text-gray-600"
+                        placeholder="written_essay_draft.pdf"
+                        required
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={uploadingAssignment}
+                      className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg cursor-pointer text-xs"
+                    >
+                      {uploadingAssignment ? "Deploying assignment package..." : "Submit Written Portfolio"}
+                    </button>
+                  </form>
+                </div>
+
+              </div>
+
               {/* Dynamic AI Study Tutor & Dynamic AI Quiz panel */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
@@ -1112,6 +1441,22 @@ export default function StudentDashboard({
           </div>
         )}
       </div>
+
+      {activeCourse && activeEnrollment && (
+        <AITutorInterface
+          courseTitle={activeCourse.title}
+          lessonTitle={
+            activeCourse.modules
+              ?.flatMap((m) => m.lessons)
+              ?.find((l) => l.id === activeLessonId)?.title || "Course Introduction Outline"
+          }
+          lessonType={
+            activeCourse.modules
+              ?.flatMap((m) => m.lessons)
+              ?.find((l) => l.id === activeLessonId)?.type || "document"
+          }
+        />
+      )}
     </div>
   );
 }

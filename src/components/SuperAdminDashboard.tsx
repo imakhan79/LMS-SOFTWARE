@@ -101,24 +101,28 @@ export default function SuperAdminDashboard({
       <div className="flex border-b border-gray-200 gap-2 overflow-x-auto pb-1">
         <button 
           onClick={() => setActiveTab("overview")}
+          aria-label="View System Telemetry Overview"
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${activeTab === "overview" ? "border-blue-600 text-blue-600 font-semibold" : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300"}`}
         >
           <Activity className="w-4 h-4" /> System Telemetry
         </button>
         <button 
           onClick={() => setActiveTab("users")}
+          aria-label="Manage User Roles and Accounts"
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${activeTab === "users" ? "border-blue-600 text-blue-600 font-semibold" : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300"}`}
         >
           <Users className="w-4 h-4" /> Role Management
         </button>
         <button 
           onClick={() => setActiveTab("security")}
+          aria-label="View Security and Audit Log Entries"
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${activeTab === "security" ? "border-blue-600 text-blue-600 font-semibold" : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300"}`}
         >
           <Shield className="w-4 h-4" /> Audit Logs & Security
         </button>
         <button 
           onClick={() => setActiveTab("settings")}
+          aria-label="Configure Global System Preferences"
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${activeTab === "settings" ? "border-blue-600 text-blue-600 font-semibold" : "border-transparent text-gray-500 hover:text-gray-900 hover:border-gray-300"}`}
         >
           <Settings2 className="w-4 h-4" /> Global Settings

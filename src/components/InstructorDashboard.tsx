@@ -16,7 +16,7 @@ interface Props {
 export default function InstructorDashboard({
   courses, discussions, onAddDiscussion, onModifyCourseSyllabus
 }: Props) {
-  const [activeSubTab, setActiveSubTab] = useState<"builder" | "zoom" | "discussions" | "content" | "attendance">("builder");
+  const [activeSubTab, setActiveSubTab] = useState<"builder" | "zoom" | "discussions" | "content" | "attendance" | "grading" | "batches">("builder");
   const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || "");
   const [newModuleName, setNewModuleName] = useState("");
   const [newLessonName, setNewLessonName] = useState("");
@@ -32,6 +32,53 @@ export default function InstructorDashboard({
   const [attExpiresMinutes, setAttExpiresMinutes] = useState(15);
   const [viewingSession, setViewingSession] = useState<QrSession | null>(null);
   const [fetchingAttendance, setFetchingAttendance] = useState(false);
+
+  // Assessor Portfolio Grading & Batch Monitoring States
+  const [submissionsList, setSubmissionsList] = useState<any[]>([]);
+  const [batchesList, setBatchesList] = useState<any[]>([]);
+  const [activeGradingSubId, setActiveGradingSubId] = useState<string | null>(null);
+  const [assessorScore, setAssessorScore] = useState("90/100");
+  const [assessorFeedback, setAssessorFeedback] = useState("Perfect conceptual depth.");
+  const [submittingGrade, setSubmittingGrade] = useState(false);
+
+  const fetchAssessorData = async () => {
+    try {
+      const [submissionsRes, batchesRes] = await Promise.all([
+        fetch("/api/assignments"),
+        fetch("/api/batches")
+      ]);
+      setSubmissionsList(await submissionsRes.json());
+      setBatchesList(await batchesRes.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePostGradeAssessor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeGradingSubId) return;
+
+    setSubmittingGrade(true);
+    try {
+      const res = await fetch(`/api/assignments/${activeGradingSubId}/grade`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grade: assessorScore
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Numerical score successfully issued and committed!");
+        setActiveGradingSubId(null);
+        fetchAssessorData();
+      }
+    } catch (err) {
+      alert("Error logging assessor evaluation.");
+    } finally {
+      setSubmittingGrade(false);
+    }
+  };
 
   const loadAttendanceData = async () => {
     setFetchingAttendance(true);
@@ -53,7 +100,8 @@ export default function InstructorDashboard({
 
   React.useEffect(() => {
     loadAttendanceData();
-  }, []);
+    fetchAssessorData();
+  }, [courses]);
 
   const handleCreateAttendanceSession = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,33 +312,58 @@ export default function InstructorDashboard({
       <div className="flex border-b border-gray-200 gap-1 overflow-x-auto pb-1 mt-4">
         <button 
           onClick={() => setActiveSubTab("builder")}
+          aria-label="View Interactive Course Builder"
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "builder" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
         >
           <BookOpen className="w-3.5 h-3.5" /> Interactive Course Builder
         </button>
         <button 
           onClick={() => setActiveSubTab("zoom")}
+          aria-label="View Zoom and Lectures Scheduler"
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "zoom" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
         >
           <Video className="w-3.5 h-3.5" /> Zoom & Lectures Scheduler
         </button>
         <button 
           onClick={() => setActiveSubTab("discussions")}
+          aria-label="View Forum Discussions"
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "discussions" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
         >
           <MessageSquare className="w-3.5 h-3.5" /> Forum Discussions
         </button>
         <button 
           onClick={() => setActiveSubTab("content")}
+          aria-label="View SCORM and Assets Delivery Hub"
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "content" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
         >
           <FileUp className="w-3.5 h-3.5" /> SCORM & Assets Delivery
         </button>
         <button 
           onClick={() => setActiveSubTab("attendance")}
+          aria-label="View QR Code Attendance Logs"
           className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "attendance" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
         >
           <QrCode className="w-3.5 h-3.5" /> QR Code Attendance
+        </button>
+        <button 
+          onClick={() => {
+            setActiveSubTab("grading");
+            fetchAssessorData();
+          }}
+          aria-label="View Portfolio Grading Suite"
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "grading" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
+        >
+          <Award className="w-3.5 h-3.5" /> Portfolio Grading
+        </button>
+        <button 
+          onClick={() => {
+            setActiveSubTab("batches");
+            fetchAssessorData();
+          }}
+          aria-label="View Batches Timelines Scheduler"
+          className={`flex items-center gap-2 px-4 py-2 text-xs font-bold border-b-2 transition-all ${activeSubTab === "batches" ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-900"}`}
+        >
+          <Calendar className="w-3.5 h-3.5" /> Batches Timelines
         </button>
       </div>
 
@@ -304,6 +377,7 @@ export default function InstructorDashboard({
                 <button
                   key={course.id}
                   onClick={() => setSelectedCourseId(course.id)}
+                  aria-label={`Select syllabus template for ${course.title}`}
                   className={`w-full text-left p-3 rounded-lg text-xs font-semibold block transition-all ${course.id === selectedCourseId ? "bg-blue-50 text-blue-700 shadow-2xs" : "text-gray-600 hover:bg-gray-50"}`}
                 >
                   {course.title.slice(0, 36)}...
@@ -840,6 +914,223 @@ export default function InstructorDashboard({
                 })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assessor Written Portfolios Grading Tab */}
+      {activeSubTab === "grading" && (
+        <div className="bg-white p-6 rounded-xl border border-gray-150 shadow-xs space-y-6 text-left">
+          <div>
+            <h2 className="text-sm font-bold text-gray-900 tracking-tight flex items-center gap-2">
+              <Award className="w-4 h-4 text-blue-600" /> Syllabus Portfolio Assessment Desk
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Evaluate incoming essay submissions and project submissions. Award grades directly to database ledger.</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Submissions queue */}
+            <div className="lg:col-span-1 space-y-3">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Submissions Cue ({submissionsList.length})</span>
+              
+              <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                {submissionsList.length === 0 ? (
+                  <div className="border border-dashed border-gray-150 rounded-lg p-6 text-center text-gray-400 text-xs italic">
+                    No coursework submitted yet. Students can submit written plans on the dashboard.
+                  </div>
+                ) : (
+                  submissionsList.map(sub => {
+                    const matchedC = courses.find(c => c.id === sub.courseId);
+                    const isSelected = sub.id === activeGradingSubId;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => {
+                          setActiveGradingSubId(sub.id);
+                          setAssessorScore(sub.grade || "90/100");
+                        }}
+                        className={`w-full text-left p-3 rounded-xl border transition-all block ${
+                          isSelected ? "bg-blue-50/70 border-blue-400 text-blue-900 font-semibold" : "bg-white border-gray-150 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-[9.5px] font-bold text-gray-400 uppercase tracking-widest">{sub.authorName || "Alex Mercer"}</span>
+                          {sub.grade ? (
+                            <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200">
+                              Graded: {sub.grade}
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200 animate-pulse">
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="font-bold text-xs text-gray-900 mt-1 line-clamp-1">{matchedC?.title || "Specialist Module"}</h4>
+                        <div className="mt-2 text-[10px] text-gray-400 flex justify-between">
+                          <span>File: {sub.fileName}</span>
+                          <span className="font-mono">{new Date(sub.submittedAt).toLocaleDateString()}</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Right Grading grading panel */}
+            <div className="lg:col-span-2 bg-slate-50 border border-gray-150 rounded-xl p-5 space-y-4">
+              {activeGradingSubId ? (
+                (() => {
+                  const sub = submissionsList.find(s => s.id === activeGradingSubId);
+                  if (!sub) return null;
+                  const matchedC = courses.find(c => c.id === sub.courseId);
+                  return (
+                    <div className="space-y-4">
+                      <div className="border-b border-gray-200 pb-3 flex justify-between items-center">
+                        <div>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-sm uppercase tracking-wider block w-fit">ACTIVE EVALUATION</span>
+                          <h3 className="font-extrabold text-sm text-gray-900 mt-1">Written Analysis Portfolio</h3>
+                          <p className="text-[10.5px] text-gray-500 mt-0.5">Submitted by <strong className="text-gray-800">{sub.authorName || "Alex Mercer"}</strong> for {matchedC?.title}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-gray-400 block font-bold">ATTACHED HARDCOPY</span>
+                          <span className="text-[11px] font-mono text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-bold">{sub.fileName}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <span className="text-[9.5px] uppercase font-bold text-gray-400 block tracking-widest">Student Essay Draft</span>
+                        <div className="bg-white border border-gray-150 rounded-lg p-4 font-serif text-gray-800 text-xs leading-relaxed max-h-56 overflow-y-auto select-all whitespace-pre-wrap shadow-3xs">
+                          {sub.textContent}
+                        </div>
+                      </div>
+
+                      <form onSubmit={handlePostGradeAssessor} className="bg-white p-4 rounded-xl border border-gray-200/80 space-y-3 shadow-3xs">
+                        <span className="text-[10px] font-bold text-gray-800 uppercase tracking-widest block border-b border-gray-50 pb-1.5">Official Score Marks Criteria</span>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 block">Issue Score Percentage / Mark</label>
+                            <input
+                              type="text"
+                              value={assessorScore}
+                              onChange={e => setAssessorScore(e.target.value)}
+                              placeholder="e.g. 94/100 or Distinction"
+                              className="w-full bg-white border border-gray-200 p-2 rounded outline-hidden text-xs font-mono font-bold text-gray-800"
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-gray-500 block font-semibold text-gray-600">Grading Assessor Name</label>
+                            <input
+                              type="text"
+                              defaultValue="Dr. Sarah Jenkins"
+                              disabled
+                              className="w-full bg-gray-50 border border-gray-200 p-2 rounded text-xs select-none text-gray-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 text-xs">
+                          <label className="text-[10px] font-bold text-gray-500 block">Critical Assessment Feedback Message</label>
+                          <textarea
+                            value={assessorFeedback}
+                            onChange={e => setAssessorFeedback(e.target.value)}
+                            rows={2}
+                            placeholder="Type assessor response or structural commentary..."
+                            className="w-full border border-gray-200 p-2 rounded bg-white text-xs outline-hidden"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={submittingGrade}
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition-all cursor-pointer"
+                        >
+                          {submittingGrade ? "Logging Grade Sheet..." : "Commit Grading Marks"}
+                        </button>
+                      </form>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="py-24 text-center text-gray-400 italic text-xs space-y-3">
+                  <Award className="w-8 h-8 mx-auto text-gray-300 animate-pulse" />
+                  <div>
+                    <h4 className="font-bold text-gray-700 not-italic">No Submission Highlighted</h4>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Pick a student portfolio submission from the left queue to initiate evaluation.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Trainer Batch Cohorts Tab */}
+      {activeSubTab === "batches" && (
+        <div className="bg-white p-6 rounded-xl border border-gray-150 shadow-xs space-y-6 text-left">
+          <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 tracking-tight flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-orange-600" /> Academy Batch Cohort Monitoring
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">Monitor current intake batch progress, term periods, and student enrolment capacities.</p>
+            </div>
+            <button
+              onClick={fetchAssessorData}
+              className="p-1 px-3 text-gray-600 hover:text-gray-900 bg-gray-50 border border-gray-200 rounded text-xs transition-all cursor-pointer flex items-center gap-1"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Refresh Roster
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {batchesList.map(batch => (
+              <div key={batch.id} className="bg-white border border-gray-200 rounded-xl p-4 space-y-4 hover:shadow-2xs transition-all">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[9.5px] uppercase font-black tracking-widest bg-orange-50 text-orange-700 px-2 py-0.5 rounded">
+                      Intake ID: {batch.code || "B2026-X1"}
+                    </span>
+                    <h3 className="font-extrabold text-xs text-gray-900 mt-1">{batch.title}</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 font-mono text-right shrink-0">
+                    Cap: {batch.enrolledSize} Students
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <span>Active Course:</span>
+                    <strong className="text-gray-900">{batch.courseTitle}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Syllabus Term Period:</span>
+                    <span className="font-mono text-gray-900">{batch.termPeriod}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Meeting Slots:</span>
+                    <span className="text-gray-800 font-semibold">{batch.slots}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-gray-400 font-bold uppercase">
+                    <span>LMS Completion Rate</span>
+                    <span className="text-blue-600">76% Progress</span>
+                  </div>
+                  <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden border border-gray-100">
+                    <div className="bg-orange-500 h-full" style={{ width: "76%" }} />
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100/50 p-2.5 rounded-lg text-center text-[10px] text-gray-500">
+                  📅 Expected Graduation: <strong className="text-gray-800">December 15, 2026</strong>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -215,6 +215,7 @@ export default function Marketplace({
                 <button
                   type="button"
                   onClick={handleClearSearch}
+                  aria-label="Clear active search query"
                   className="absolute right-3 top-3.5 p-1 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-700 text-xs transition-colors"
                 >
                   ✕
@@ -267,6 +268,7 @@ export default function Marketplace({
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
+                aria-label="Filter courses by category"
                 className="bg-white border border-gray-200 hover:border-gray-400 text-xs px-2.5 py-1.5 rounded-lg outline-hidden font-medium text-gray-700 cursor-pointer min-w-[130px]"
               >
                 {categoriesList.map(cat => (
@@ -280,6 +282,7 @@ export default function Marketplace({
               <select
                 value={selectedDifficulty}
                 onChange={(e) => setSelectedDifficulty(e.target.value)}
+                aria-label="Filter courses by difficulty index"
                 className="bg-white border border-gray-200 hover:border-gray-400 text-xs px-2.5 py-1.5 rounded-lg outline-hidden font-medium text-gray-700 cursor-pointer min-w-[110px]"
               >
                 {difficultiesList.map(diff => (

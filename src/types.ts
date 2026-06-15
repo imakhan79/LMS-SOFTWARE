@@ -132,3 +132,114 @@ export interface AttendanceRecord {
   verifiedVia: "QR Scan";
 }
 
+// === ACADEMIC MANAGEMENT SYSTEM TYPES ===
+
+export interface University {
+  id: string;
+  name: string;
+  code: string;
+  location: string;
+  colleges: College[];
+}
+
+export interface College {
+  id: string;
+  name: string;
+  code: string;
+  schools: School[];
+}
+
+export interface School {
+  id: string;
+  name: string;
+  code: string;
+  departments: Department[];
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  code: string;
+  faculties: Faculty[];
+  programs: Program[];
+}
+
+export interface Faculty {
+  id: string;
+  name: string;
+  email: string;
+  designation: string;
+  specialization: string;
+}
+
+export interface Program {
+  id: string;
+  name: string;
+  code: string;
+  degreeId: string;
+  plos: ProgramLearningOutcome[];
+  semesters: SemesterNode[];
+}
+
+export interface Degree {
+  id: string;
+  name: string; // e.g., Bachelor of Science, Master of Engineering
+  durationYears: number;
+}
+
+export interface SemesterNode {
+  id: string;
+  name: string; // e.g., Semester 1, Semester 2, Term A
+  batches: BatchNode[];
+  courses: CurriculumCourseMapping[];
+}
+
+export interface BatchNode {
+  id: string;
+  name: string; // e.g., Batch 2026-A
+  sections: SectionNode[];
+}
+
+export interface SectionNode {
+  id: string;
+  name: string; // e.g., Section Alpha
+  groups: GroupNode[];
+}
+
+export interface GroupNode {
+  id: string;
+  name: string; // e.g., Group Lambda-1
+}
+
+// === CURRICULUM & OBE / BLOOM TAXONOMY ===
+
+export interface ProgramLearningOutcome {
+  id: string;
+  code: string; // e.g., PLO-1
+  title: string;
+  description: string;
+  accreditationDomain: "Knowledge" | "Skills" | "Attitude" | "Ethical";
+}
+
+export interface CourseLearningOutcome {
+  id: string;
+  code: string; // e.g., CLO-1
+  description: string;
+  bloomLevel: "C1" | "C2" | "C3" | "C4" | "C5" | "C6"; // Bloom levels (Remember, Understand, Apply, Analyze, Evaluate, Create)
+  weight: number; // e.g., percentage or points mapping to PLOs
+  mappedPloId: string; // linked PLO
+}
+
+export interface CurriculumCourseMapping {
+  id: string;
+  courseId: string;
+  courseCode: string;
+  title: string;
+  creditHours: number; // e.g., 3 Cr. Hr., 4 Cr. Hr.
+  lectureHours: number;
+  labHours: number;
+  clos: CourseLearningOutcome[];
+  preRequisiteIds: string[];
+}
+
+

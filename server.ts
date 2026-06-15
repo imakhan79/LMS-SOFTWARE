@@ -10,6 +10,47 @@ dotenv.config();
 const geminiApiKey = process.env.GEMINI_API_KEY;
 let ai: GoogleGenAI | null = null;
 
+let isCircuitBreakerActive = false;
+let circuitBreakerResetTime = 0;
+
+function checkCircuitBreaker(): boolean {
+  if (isCircuitBreakerActive) {
+    if (Date.now() > circuitBreakerResetTime) {
+      isCircuitBreakerActive = false;
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+function triggerCircuitBreaker(durationMs: number = 240000) { // 4 minutes fallback
+  isCircuitBreakerActive = true;
+  circuitBreakerResetTime = Date.now() + durationMs;
+  console.warn(`[CIRCUIT BREAKER] Activated. Tripping all Gemini calls to fallback for next ${durationMs / 1000} seconds.`);
+}
+
+function handleGeminiError(context: string, error: any): boolean {
+  const errStr = (String(error) + " " + JSON.stringify(error)).toLowerCase();
+  const isExpected = 
+    errStr.includes("429") || 
+    errStr.includes("quota") || 
+    errStr.includes("503") || 
+    errStr.includes("unavailable") || 
+    errStr.includes("timeout") ||
+    errStr.includes("unauthorized") ||
+    errStr.includes("resource_exhausted") ||
+    errStr.includes("limitexceeded") ||
+    errStr.includes("ratelimit");
+
+  if (isExpected) {
+    triggerCircuitBreaker();
+    console.warn(`[Gemini Safe Fallback] ${context} transitioned smoothly to simulated fallback due to expected rate-limit or temporary service unavailability (e.g., Code 429/503).`);
+    return true;
+  }
+  return false;
+}
+
 if (geminiApiKey) {
   ai = new GoogleGenAI({
     apiKey: geminiApiKey,
@@ -21,6 +62,23 @@ if (geminiApiKey) {
   });
 } else {
   console.warn("GEMINI_API_KEY missing. AI features will fallback to deterministic simulations.");
+}
+
+// Helper to race a promise with a timeout to avoid hangs / Gateway Timeout (504) HTML responses
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 4200): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("Gemini API call timed out to prevent gateway timeout"));
+    }, timeoutMs);
+  });
+  return Promise.race([
+    promise.then((val) => {
+      clearTimeout(timeoutId);
+      return val;
+    }),
+    timeoutPromise
+  ]);
 }
 
 const app = express();
@@ -287,6 +345,68 @@ let auditLogs: { id: string; user: string; action: string; ip: string; status: s
 let coupons = [
   { code: "SUMMER50", discount: 50, active: true },
   { code: "AI_REVOLUTION_75", discount: 75, active: true }
+];
+
+let feeLedgers = [
+  {
+    id: "fee-1",
+    studentName: "Alex Mercer",
+    studentEmail: "student@lms.com",
+    courseId: "course-1",
+    courseTitle: "Introduction to Artificial Intelligence and Machine Learning",
+    totalFee: 1200,
+    paidAmount: 850,
+    outstandingAmount: 350,
+    status: "Partially Paid",
+    installments: [
+      { id: "inst-1-1", installmentNo: 1, amount: 400, dueDate: "2026-05-15", paidDate: "2026-05-14", status: "Paid", method: "PayPal" },
+      { id: "inst-1-2", installmentNo: 2, amount: 450, dueDate: "2026-06-15", paidDate: "2026-06-12", status: "Paid", method: "Stripe" },
+      { id: "inst-1-3", installmentNo: 3, amount: 350, dueDate: "2026-07-15", paidDate: null, status: "Due", method: "" }
+    ]
+  },
+  {
+    id: "fee-2",
+    studentName: "Imran Ahmed",
+    studentEmail: "imranahmed272@gmail.com",
+    courseId: "course-2",
+    courseTitle: "SaaS Systems Scaling, Microservices & Dockerized Ingress",
+    totalFee: 1500,
+    paidAmount: 500,
+    outstandingAmount: 1000,
+    status: "Partially Paid",
+    installments: [
+      { id: "inst-2-1", installmentNo: 1, amount: 500, dueDate: "2026-06-01", paidDate: "2026-06-02", status: "Paid", method: "Cash" },
+      { id: "inst-2-2", installmentNo: 2, amount: 500, dueDate: "2026-07-01", paidDate: null, status: "Due", method: "" },
+      { id: "inst-2-3", installmentNo: 3, amount: 500, dueDate: "2026-08-01", paidDate: null, status: "Due", method: "" }
+    ]
+  },
+  {
+    id: "fee-3",
+    studentName: "Sophia Sinclair",
+    studentEmail: "sophia_vip@lms.com",
+    courseId: "course-3",
+    courseTitle: "Enterprise Cyber Security Architecture & Incident Management",
+    totalFee: 1000,
+    paidAmount: 1000,
+    outstandingAmount: 0,
+    status: "Fully Paid",
+    installments: [
+      { id: "inst-3-1", installmentNo: 1, amount: 500, dueDate: "2026-05-10", paidDate: "2026-05-09", status: "Paid", method: "Bank Transfer" },
+      { id: "inst-3-2", installmentNo: 2, amount: 500, dueDate: "2026-06-10", paidDate: "2026-06-10", status: "Paid", method: "Bank Transfer" }
+    ]
+  }
+];
+
+let batches = [
+  { id: "batch-1", name: "Batch 2026-A (Neural Science)", courseId: "course-1", courseTitle: "Introduction to Artificial Intelligence and Machine Learning", startDate: "2026-05-01", endDate: "2026-11-01", trainerName: "Dr. Sarah Jenkins", totalStudents: 15, progressPercentage: 35, status: "Active" },
+  { id: "batch-2", name: "Batch 2026-B (SaaS Architecture)", courseId: "course-2", courseTitle: "SaaS Systems Scaling, Microservices & Dockerized Ingress", startDate: "2026-06-01", endDate: "2026-12-01", trainerName: "Prof. Alan Turing", totalStudents: 12, progressPercentage: 10, status: "Active" },
+  { id: "batch-3", name: "Batch 2025-C (Fast Cybersecurity)", courseId: "course-3", courseTitle: "Enterprise Cyber Security Architecture & Incident Management", startDate: "2025-11-01", endDate: "2026-05-01", trainerName: "Dr. Jenkins & Experts", totalStudents: 22, progressPercentage: 100, status: "Completed" }
+];
+
+let receptionLog = [
+  { id: "req-1", visitorName: "John Doe", contactNo: "+1 (555) 321-9876", queryCourse: "Introduction to Artificial Intelligence and Machine Learning", status: "Inquiry", email: "john_doe@example.com", dated: "2026-06-14", notes: "Called regarding installment options and evening batches." },
+  { id: "req-2", visitorName: "Jane Miller", contactNo: "+1 (555) 789-1234", queryCourse: "SaaS Systems Scaling, Microservices & Dockerized Ingress", status: "Registered", email: "jane_m@outlook.com", dated: "2026-06-15", notes: "Walked-in, completed cash registration and assigned to Batch 2026-B." },
+  { id: "req-3", visitorName: "Robert Kelly", contactNo: "+1 (555) 888-9999", queryCourse: "Enterprise Cyber Security Architecture & Incident Management", status: "Inquiry", email: "rob_k@gmail.com", dated: "2026-06-15", notes: "Inquired via the integrated website booking form." }
 ];
 
 let transactions = [
@@ -763,6 +883,198 @@ app.post("/api/checkout", (req, res) => {
   res.json({ success: true, transaction: txn });
 });
 
+// ==========================================
+// FEE MANAGEMENT & INSTALMENT TRACKING
+// ==========================================
+app.get("/api/fees/ledgers", (req, res) => {
+  res.json(feeLedgers);
+});
+
+// Collect custom fee installment
+app.post("/api/fees/collect", (req, res) => {
+  const { ledgerId, installmentId, paymentMethod } = req.body;
+  const ledger = feeLedgers.find(L => L.id === ledgerId);
+  if (!ledger) {
+    return res.status(404).json({ error: "Fee account profile not found" });
+  }
+
+  const inst = ledger.installments.find(i => i.id === installmentId);
+  if (!inst) {
+    return res.status(404).json({ error: "Installment item not found" });
+  }
+
+  if (inst.status === "Paid") {
+    return res.status(400).json({ error: "Installment already marked as paid" });
+  }
+
+  // Update installment state
+  inst.status = "Paid";
+  inst.paidDate = new Date().toISOString().split("T")[0];
+  inst.method = paymentMethod || "Cash";
+
+  // Re-calculate ledger amounts
+  ledger.paidAmount += inst.amount;
+  ledger.outstandingAmount = Math.max(0, ledger.totalFee - ledger.paidAmount);
+  if (ledger.outstandingAmount === 0) {
+    ledger.status = "Fully Paid";
+  } else {
+    ledger.status = "Partially Paid";
+  }
+
+  // Record a standard transaction audit log entry dynamically too!
+  const txn = {
+    id: `txn-inst-${Date.now()}`,
+    studentEmail: ledger.studentEmail,
+    courseTitle: `[Installment #${inst.installmentNo}] ${ledger.courseTitle}`,
+    amount: inst.amount,
+    status: "Paid",
+    gateway: paymentMethod || "Cash Desk",
+    date: new Date().toISOString().split("T")[0]
+  };
+  transactions.unshift(txn);
+
+  res.json({ success: true, ledger });
+});
+
+// ==========================================
+// BATCH MANAGEMENT & ACADEMIC RUNS
+// ==========================================
+app.get("/api/batches", (req, res) => {
+  res.json(batches);
+});
+
+app.post("/api/batches", (req, res) => {
+  const { name, courseId, trainerName, startDate, endDate } = req.body;
+  const targetCourse = courses.find(c => c.id === courseId);
+  if (!targetCourse) {
+    return res.status(404).json({ error: "Linked Master course selection not found" });
+  }
+
+  const newBatch = {
+    id: `batch-${Date.now()}`,
+    name: name || "New Batch Run",
+    courseId,
+    courseTitle: targetCourse.title,
+    startDate: startDate || new Date().toISOString().split("T")[0],
+    endDate: endDate || "2026-12-31",
+    trainerName: trainerName || "Unassigned Assessor",
+    totalStudents: 0,
+    progressPercentage: 0,
+    status: "Upcoming"
+  };
+
+  batches.push(newBatch);
+  res.json({ success: true, batch: newBatch });
+});
+
+// ==========================================
+// RECEPTION DESK & WEBSITE INQUIRIES
+// ==========================================
+app.get("/api/reception/inquiries", (req, res) => {
+  res.json(receptionLog);
+});
+
+// Direct website callback or walk-in query logging
+app.post("/api/reception/inquiries", (req, res) => {
+  const { visitorName, contactNo, queryCourse, email, notes } = req.body;
+  
+  const inquiry = {
+    id: `req-${Date.now()}`,
+    visitorName: visitorName || "Anonymous Inquirer",
+    contactNo: contactNo || "N/A",
+    queryCourse: queryCourse || "General Inquiry",
+    status: "Inquiry",
+    email: email || "unknown@lms.com",
+    dated: new Date().toISOString().split("T")[0],
+    notes: notes || "Submitted inquiry card via public website"
+  };
+
+  receptionLog.unshift(inquiry);
+  res.json({ success: true, inquiry });
+});
+
+// receptionist offline walk-in student registrar
+app.post("/api/reception/walkin-register", (req, res) => {
+  const { name, email, courseId, initialDeposit, totalFeeInstallments } = req.body;
+  
+  const targetCourse = courses.find(c => c.id === courseId);
+  const courseTitle = targetCourse ? targetCourse.title : "Introduction to Artificial Intelligence and Machine Learning";
+  
+  // 1. Create walk-in registration record
+  const walkinId = `req-${Date.now()}`;
+  receptionLog.unshift({
+    id: walkinId,
+    visitorName: name,
+    contactNo: "+1 (Walk-in Registrar)",
+    queryCourse: courseTitle,
+    status: "Registered",
+    email: email,
+    dated: new Date().toISOString().split("T")[0],
+    notes: `Enrolled student manually as walk-in. Received initial cash depot of $${initialDeposit}`
+  });
+
+  // 2. Provision Fee Ledger with installment plans
+  const feeId = `fee-${Date.now()}`;
+  const installmentsCount = Number(totalFeeInstallments) || 3;
+  const courseCost = targetCourse ? targetCourse.price : 1200;
+  
+  const remainingAfterDepot = Math.max(0, courseCost - initialDeposit);
+  const instAmt = Math.round(remainingAfterDepot / (installmentsCount - 1 || 1));
+
+  const installmentsArray = [
+    {
+      id: `inst-${feeId}-1`,
+      installmentNo: 1,
+      amount: Number(initialDeposit),
+      dueDate: new Date().toISOString().split("T")[0],
+      paidDate: new Date().toISOString().split("T")[0],
+      status: "Paid",
+      method: "Cash Desk"
+    }
+  ];
+
+  for (let i = 2; i <= installmentsCount; i++) {
+    const nextDate = new Date();
+    nextDate.setMonth(nextDate.getMonth() + (i - 1));
+    installmentsArray.push({
+      id: `inst-${feeId}-${i}`,
+      installmentNo: i,
+      amount: instAmt,
+      dueDate: nextDate.toISOString().split("T")[0],
+      paidDate: null,
+      status: "Due",
+      method: ""
+    });
+  }
+
+  feeLedgers.push({
+    id: feeId,
+    studentName: name,
+    studentEmail: email,
+    courseId: courseId || "course-1",
+    courseTitle: courseTitle,
+    totalFee: courseCost,
+    paidAmount: Number(initialDeposit),
+    outstandingAmount: remainingAfterDepot,
+    status: remainingAfterDepot === 0 ? "Fully Paid" : "Partially Paid",
+    installments: installmentsArray
+  });
+
+  // Add a ledger audit transaction
+  const txn = {
+    id: `txn-walkin-${Date.now()}`,
+    studentEmail: email,
+    courseTitle: `[Walk-in Registration] ${courseTitle}`,
+    amount: Number(initialDeposit),
+    status: "Paid",
+    gateway: "Cash Desk",
+    date: new Date().toISOString().split("T")[0]
+  };
+  transactions.unshift(txn);
+
+  res.json({ success: true, studentEmail: email, courseTitle });
+});
+
 // GET exam submission status
 app.get("/api/exams", (req, res) => {
   res.json(examSubmissions);
@@ -793,7 +1105,7 @@ app.post("/api/exams/submit", (req, res) => {
 app.post("/api/ai/chat", async (req, res) => {
   const { message, history, context } = req.body;
 
-  if (!ai) {
+  if (!ai || checkCircuitBreaker()) {
     return res.json({
       reply: `🚀 [DEMO MODE] I would explain: "${message}" based on your course contextual topics: ${context || "General LMS Course"}. (Configure GEMINI_API_KEY to unlock actual real-time AI responses).`
     });
@@ -820,12 +1132,63 @@ User Query: ${message}`;
       history: chatHistory
     });
 
-    const response = await chat.sendMessage({ message: prompt });
+    const response = await withTimeout(chat.sendMessage({ message: prompt }));
     res.json({ reply: response.text });
   } catch (error: any) {
-    console.error("Gemini AI Chat Error:", error);
+    const isExpected = handleGeminiError("Gemini AI Chat", error);
+    if (!isExpected) {
+      console.log("Unexpected Gemini AI Chat issue:", error?.message || error);
+    }
     res.json({
       reply: `I encountered an error generating details. Let's do a fast conceptual explanation instead: You can find structural answers in the course chapter materials or consult your assignment group discussions.`
+    });
+  }
+});
+
+// 1b. AI Academic Lesson Tutor Endpoint
+app.post("/api/ai/tutor", async (req, res) => {
+  const { message, history, courseTitle, lessonTitle, lessonType } = req.body;
+
+  if (!ai || checkCircuitBreaker()) {
+    return res.json({
+      reply: `🚀 [DEMO MODE] (Configure GEMINI_API_KEY to unlock active real-time AI responses).\n\nIf the Gemini model were active, here is the explanation for your lesson **"${lessonTitle || "Syllabus Node"}"** under **"${courseTitle || "Course Curriculum"}"**:\n\n*   **Conceptual Summary**: This lesson node introduces structural building blocks, practical operations, and foundational mechanisms designed to reinforce your competencies.\n*   **Practical Analogy**: Imagine building an architectural blueprint. Before pouring the concrete foundation, you must review the structural layout of modules to ensure balanced stability. This lesson works identically!\n*   **Industry Application**: Professionals use these core principles daily to optimize workflow performance, refine processing latency, and build durable services.`
+    });
+  }
+
+  try {
+    const model = "gemini-3.5-flash";
+    const systemInstruction = `You are an interactive, supportive Academic AI Tutor inside a state-of-the-art enterprise Learning Management System (LMS). 
+Your objective is to explain, guide, and tutor the student on the lesson titled "${lessonTitle || "current lesson"}" (formatted as a ${lessonType || "study"} node) within the course "${courseTitle || "current course"}" syllabus.
+
+Follow these strict rules:
+1. Provide extremely beautiful, professional academic explanations.
+2. Structure your replies using clear line-breaks, lists, bold elements, and scannable sections.
+3. If code blocks are included, use standard markdown fences (\`\`\`).
+4. Always frame your responses with high support, guiding the student constructively toward conceptual mastery.`;
+
+    const chatHistory = history?.slice(0, -1).map((h: any) => ({
+      role: h.sender === "user" ? "user" : "model",
+      parts: [{ text: h.text }]
+    })) || [];
+
+    const chat = ai.chats.create({
+      model,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      },
+      history: chatHistory
+    });
+
+    const response = await withTimeout(chat.sendMessage({ message: message }));
+    res.json({ reply: response.text });
+  } catch (error: any) {
+    const isExpected = handleGeminiError("AI Tutor Endpoint", error);
+    if (!isExpected) {
+      console.log("Unexpected AI Tutor Endpoint issue:", error?.message || error);
+    }
+    res.json({
+      reply: `I encountered a processing error while connecting to the Gemini academic service. Let me clarify conceptually instead:\n\nThe core of **"${lessonTitle || "this lesson"}"** centers on mastering structural workflows, ensuring high cohesiveness, and refining practical parameters. You can find related practice challenges in the Course Modules panel!`
     });
   }
 });
@@ -834,7 +1197,7 @@ User Query: ${message}`;
 app.post("/api/ai/quiz-generator", async (req, res) => {
   const { topic } = req.body;
 
-  if (!ai) {
+  if (!ai || checkCircuitBreaker()) {
     // Return mock quiz
     return res.json({
       quizTitle: `AI Review on: ${topic || "Cloud Ingress Setup"}`,
@@ -869,7 +1232,7 @@ app.post("/api/ai/quiz-generator", async (req, res) => {
 
   try {
     const model = "gemini-3.5-flash";
-    const response = await ai.models.generateContent({
+    const response = await withTimeout(ai.models.generateContent({
       model,
       contents: `Generate a 2-question interactive multiple choice quiz about the topic: "${topic || "Modern Microservices Architecture"}".
 Provide the response in raw JSON adhering to this schema format:
@@ -912,14 +1275,46 @@ Provide the response in raw JSON adhering to this schema format:
           }
         }
       }
-    });
+    }));
 
     const bodyText = response.text || "{}";
     const quizData = JSON.parse(bodyText.trim());
     res.json(quizData);
   } catch (error: any) {
-    console.error("Gemini AI Quiz Error:", error);
-    res.status(500).json({ error: "Failed to generate AI quiz dynamically." });
+    const isExpected = handleGeminiError("Gemini AI Quiz", error);
+    if (!isExpected) {
+      console.log("Unexpected Gemini AI Quiz issue:", error?.message || error);
+    }
+    // Fallback quiz when Gemini service is unavailable
+    res.json({
+      quizTitle: `AI Review on: ${topic || "Cloud Ingress Setup"} (Adaptive Fallback)`,
+      questions: [
+        {
+          id: "q_1",
+          question: `In production cloud orchestration, which port binds incoming public web server traffic correctly?`,
+          options: [
+            "Port 3000 binds exclusively with reverse-proxy mapping",
+            "Port 8080 without SSL rules",
+            "Port 22 SSH bypass",
+            "Random dynamic port ranges"
+          ],
+          correctIdx: 0,
+          explanation: "In our production system configuration, port 3000 is the only externally accessible port handled by our reverse proxy."
+        },
+        {
+          id: "q_2",
+          question: "Zero-Trust architectures recommend establishing credentials through:",
+          options: [
+            "Exposures of plain text secrets in standard files",
+            "Secure, back-end server variables and lazy-loaded API clients",
+            "Hardcoded storage protocols directly within client cookies",
+            "Permissive root access tokens"
+          ],
+          correctIdx: 1,
+          explanation: "Securing systems requires utilizing environment variables and server proxies, completely concealing keys from client-side views."
+        }
+      ]
+    });
   }
 });
 
@@ -927,7 +1322,7 @@ Provide the response in raw JSON adhering to this schema format:
 app.post("/api/ai/evaluate", async (req, res) => {
   const { submissionText, topic } = req.body;
 
-  if (!ai) {
+  if (!ai || checkCircuitBreaker()) {
     return res.json({
       score: "88 / 100",
       passed: true,
@@ -946,7 +1341,7 @@ Provide an grading evaluation in JSON format with exact properties:
 - passed: boolean (true if score is 60 or above)
 - rubricFeedback: string (critique of clarity, depth, tech accuracy, recommendations for progress)`;
 
-    const response = await ai.models.generateContent({
+    const response = await withTimeout(ai.models.generateContent({
       model,
       contents: prompt,
       config: {
@@ -961,12 +1356,15 @@ Provide an grading evaluation in JSON format with exact properties:
           }
         }
       }
-    });
+    }));
 
     const data = JSON.parse(response.text || "{}");
     res.json(data);
   } catch (error: any) {
-    console.error("Gemini AI Evaluation Error:", error);
+    const isExpected = handleGeminiError("Gemini AI Evaluation", error);
+    if (!isExpected) {
+      console.log("Unexpected Gemini AI Evaluation issue:", error?.message || error);
+    }
     res.json({
       score: "Graded: B+",
       passed: true,
@@ -1008,7 +1406,7 @@ app.post("/api/ai/recommend-courses", async (req, res) => {
 
   const interestsList = interests && interests.length > 0 ? interests : ["Computer Science", "Artificial Intelligence", "Information Technology"];
 
-  if (!ai) {
+  if (!ai || checkCircuitBreaker()) {
     // Dynamic recommendation simulation in demo mode
     const recommendedCatalog = courses
       .map(c => {
@@ -1109,7 +1507,7 @@ Provide the output in raw JSON matching this schema:
   }
 }`;
 
-    const response = await ai.models.generateContent({
+    const response = await withTimeout(ai.models.generateContent({
       model,
       contents: prompt,
       config: {
@@ -1157,13 +1555,70 @@ Provide the output in raw JSON matching this schema:
           }
         }
       }
-    });
+    }));
 
     const outputJson = JSON.parse(response.text || "{}");
     res.json(outputJson);
   } catch (error: any) {
-    console.error("Gemini course recommendation error:", error);
-    res.status(500).json({ error: "Failed to generate AI course recommendations." });
+    const isExpected = handleGeminiError("Gemini course recommendation", error);
+    if (!isExpected) {
+      console.log("Unexpected Gemini course recommendation issue:", error?.message || error);
+    }
+    
+    // Fallback recommendation flow when Gemini API key or service is unavailable
+    const enrolledCourseIds = studentEnrollments.map(e => e.courseId);
+    const recommendedCatalog = courses
+      .map(c => {
+        const isEnrolled = enrolledCourseIds.includes(c.id);
+        let matchScore = 65;
+        if (interestsList.some((i: string) => c.title.toLowerCase().includes(i.toLowerCase()) || c.category.toLowerCase().includes(i.toLowerCase()))) {
+          matchScore += 25;
+        }
+        if (c.difficulty === "Beginner") matchScore += 5;
+        matchScore = Math.min(100, Math.max(40, matchScore));
+
+        return {
+          courseId: c.id,
+          title: c.title,
+          category: c.category,
+          difficulty: c.difficulty,
+          isAlreadyEnrolled: isEnrolled,
+          matchScore,
+          reason: `Highly aligned with your interest in "${interestsList[0] || 'Enterprise Engineering'}" (Fallback Mode due to temporary high demand).`,
+          suggestedNextSteps: [
+            `Enroll in the introductory module of this course.`,
+            `Complete the fast knowledge review quizzes.`
+          ]
+        };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore);
+
+    const catalogRecommendations = recommendedCatalog.filter(r => !r.isAlreadyEnrolled);
+
+    res.json({
+      recommendations: catalogRecommendations,
+      personalizedTopic: interestsList.join(" & ") + " Adaptive Pathway",
+      personalizedPath: {
+        title: `Custom Masterclass: Dynamic Concepts in ${interestsList[0] || 'Enterprise Engineering'}`,
+        description: `An adaptive learning path custom-synthesized for ${student.name} based on active development skills in ${interestsList.join(", ")}.`,
+        modules: [
+          {
+            title: `Module 1: Practical Synthesis of ${interestsList[0] || 'Modern Engineering'}`,
+            topics: [
+              `Core mechanics and implementation practices`,
+              `Performance profiling and validation`
+            ]
+          },
+          {
+            title: `Module 2: Advanced Integration Paradigms`,
+            topics: [
+              `Fault-tolerant scalable structures`,
+              `Distributed testing environments`
+            ]
+          }
+        ]
+      }
+    });
   }
 });
 
@@ -1183,7 +1638,7 @@ app.post("/api/ai/marketplace-search", async (req, res) => {
   const normalizedQuery = (query || "").trim();
 
   // Handle case where we don't have Gemini Key
-  if (!ai) {
+  if (!ai || checkCircuitBreaker()) {
     const results = filteredCatalog.map(c => {
       let matchScore = 80; // default baseline
       let targetedSkills: string[] = [];
@@ -1287,7 +1742,7 @@ Provide the output in raw JSON matching this schema:
   "overallAnalysis": "A cohesive overall summary and recommendation."
 }`;
 
-    const response = await ai.models.generateContent({
+    const response = await withTimeout(ai.models.generateContent({
       model,
       contents: prompt,
       config: {
@@ -1314,13 +1769,80 @@ Provide the output in raw JSON matching this schema:
           }
         }
       }
-    });
+    }));
 
     const parsed = JSON.parse(response.text || "{}");
     res.json(parsed);
   } catch (error: any) {
-    console.error("Gemini marketplace search error:", error);
-    res.status(552).json({ error: "Failed to perform semantic AI search." });
+    const isExpected = handleGeminiError("Gemini marketplace search", error);
+    if (!isExpected) {
+      console.log("Unexpected Gemini marketplace search issue:", error?.message || error);
+    }
+
+    // Dynamic semantic search fallback matching logic
+    const results = filteredCatalog.map(c => {
+      let matchScore = 80; // default baseline
+      let targetedSkills: string[] = [];
+
+      if (c.category === "Artificial Intelligence") {
+        targetedSkills = ["Prompt Engineering", "Large Language Models", "Model Fine-Tuning"];
+      } else if (c.category === "Software Engineering") {
+        targetedSkills = ["TypeScript Systems", "Relational Database Design", "REST API Architectures"];
+      } else if (c.category === "Cybersecurity") {
+        targetedSkills = ["Penetration Testing Security", "IAM Protocol Vulnerabilities", "Threat Intelligence"];
+      } else if (c.category === "Cloud Computing") {
+        targetedSkills = ["Docker Containerization", "Kubernetes Native Deployment", "AWS Cloud Infrastructure"];
+      } else {
+        targetedSkills = [c.category, `${c.difficulty} Competencies`];
+      }
+
+      if (normalizedQuery) {
+        let keywordHits = 0;
+        const keywords = normalizedQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        
+        for (const kw of keywords) {
+          if (c.title.toLowerCase().includes(kw) || 
+              c.description.toLowerCase().includes(kw) || 
+              c.category.toLowerCase().includes(kw) ||
+              c.outcomes.some((o: string) => o.toLowerCase().includes(kw))) {
+            keywordHits++;
+          }
+        }
+        
+        if (keywordHits > 0) {
+          matchScore = 75 + (keywordHits * 8);
+        } else {
+          // Soft match based on difficulty matching or baseline
+          matchScore = Math.max(30, 55 - (c.difficulty === "Advanced" ? 10 : 0));
+        }
+      }
+
+      matchScore = Math.min(100, matchScore);
+      let suitabilityRating: "High" | "Medium" | "Low" = "Medium";
+      if (matchScore >= 80) suitabilityRating = "High";
+      else if (matchScore < 60) suitabilityRating = "Low";
+
+      const goalVerb = normalizedQuery ? `addressing your interest in "${normalizedQuery}"` : "advancing your technical mastery";
+      const fitReason = `Provides excellent structural alignment for ${goalVerb}, helping you develop crucial skills like ${targetedSkills.slice(0, 2).join(" and ")} precisely at the ${c.difficulty} complexity index.`;
+
+      return {
+        courseId: c.id,
+        matchScore,
+        careerFitReason: fitReason,
+        targetedSkills,
+        suitabilityRating
+      };
+    });
+
+    // Sort by match score descending
+    results.sort((a, b) => b.matchScore - a.matchScore);
+
+    res.json({
+      results,
+      overallAnalysis: normalizedQuery 
+        ? `Adaptive Fallback: Active search on "${normalizedQuery}" shows strong local alignment with ${results.filter(r => r.suitabilityRating === "High").length} courses. Gaps in ${normalizedQuery} are resolved using hands-on outcomes.`
+        : "Displaying complete course matches. Type custom career goals or skill gaps to trigger full semantic alignment ranking."
+    });
   }
 });
 

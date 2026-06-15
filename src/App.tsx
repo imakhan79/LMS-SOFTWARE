@@ -14,6 +14,7 @@ import StudentDashboard from "./components/StudentDashboard";
 import ParentDashboard from "./components/ParentDashboard";
 import CorporateDashboard from "./components/CorporateDashboard";
 import Marketplace from "./components/Marketplace";
+import AcademicDashboard from "./components/AcademicDashboard";
 
 export default function App() {
   // State definitions matching types.ts
@@ -28,7 +29,7 @@ export default function App() {
   const [stats, setStats] = useState<any>({ totalRevenue: 497, totalStudents: 1, totalInstructors: 2, totalCourses: 3, activeUsers: 3 });
 
   // Routing and Role Navigation States
-  const [activeRole, setActiveRole] = useState<LmsUser["role"] | "guest">("student");
+  const [activeRole, setActiveRole] = useState<LmsUser["role"] | "guest" | "academic">("academic");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -320,7 +321,8 @@ export default function App() {
     student: "Student Learner | Alex Mercer",
     parent: "Parent Monitor | David Mercer",
     corporate: "Corporate HR | John Sterling",
-    guest: "Unverified Guest / Course Marketplace"
+    guest: "Unverified Guest / Course Marketplace",
+    academic: "Academic Dean & Curriculum Manager"
   };
 
   return (
@@ -332,6 +334,7 @@ export default function App() {
           <button 
             type="button" 
             onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle Navigation Sidebar"
             className="md:hidden p-1 bg-gray-50 text-gray-500 rounded hover:bg-gray-100 cursor-pointer"
           >
             <Menu className="w-5 h-5" />
@@ -379,6 +382,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setActiveRole("superadmin"); setSidebarOpen(false); }}
+                  aria-label="Switch to Super Admin Portal"
                   className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "superadmin" ? "bg-blue-600 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
                 >
                   <span className="flex items-center gap-2">🛡️ Super Admin Portal</span>
@@ -388,6 +392,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setActiveRole("admin"); setSidebarOpen(false); }}
+                  aria-label="Switch to Institutional Admin Portal"
                   className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "admin" ? "bg-blue-600 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
                 >
                   <span className="flex items-center gap-2">💼 Institutional Admin</span>
@@ -397,6 +402,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setActiveRole("instructor"); setSidebarOpen(false); }}
+                  aria-label="Switch to Faculty Instructor Portal"
                   className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "instructor" ? "bg-blue-600 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
                 >
                   <span className="flex items-center gap-2">👨‍🏫 Faculty Instructor</span>
@@ -406,6 +412,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setActiveRole("student"); setSidebarOpen(false); }}
+                  aria-label="Switch to Student Learning Hub Portal"
                   className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "student" ? "bg-blue-600 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
                 >
                   <span className="flex items-center gap-2">🎓 Student Learning Hub</span>
@@ -415,6 +422,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setActiveRole("parent"); setSidebarOpen(false); }}
+                  aria-label="Switch to Parent Monitor Portal"
                   className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "parent" ? "bg-blue-600 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
                 >
                   <span className="flex items-center gap-2">🏡 Parent Monitor</span>
@@ -424,9 +432,20 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => { setActiveRole("corporate"); setSidebarOpen(false); }}
+                  aria-label="Switch to Corporate HR Portal"
                   className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "corporate" ? "bg-blue-600 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
                 >
                   <span className="flex items-center gap-2">🏢 Corporate HR Portal</span>
+                  <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setActiveRole("academic"); setSidebarOpen(false); }}
+                  aria-label="Switch to Academic Management System"
+                  className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "academic" ? "bg-[#4f46e5] text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
+                >
+                  <span className="flex items-center gap-2">🏛️ Academic Management</span>
                   <ChevronRight className="w-3.5 h-3.5 opacity-60" />
                 </button>
               </div>
@@ -437,6 +456,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => { setActiveRole("guest"); setSidebarOpen(false); }}
+                aria-label="Navigate to Course Marketplace"
                 className={`w-full flex items-center justify-between text-left p-2.5 rounded-lg text-xs font-semibold tracking-tight transition-all cursor-pointer ${activeRole === "guest" ? "bg-indigo-650 text-white font-bold" : "hover:bg-slate-800 text-slate-400"}`}
               >
                 <span className="flex items-center gap-2">🛒 Course Marketplace</span>
@@ -450,6 +470,7 @@ export default function App() {
               <button 
                 onClick={handleSystemBackupAction}
                 type="button" 
+                aria-label="Export platform schema as JSON backup"
                 className="w-full py-2 bg-slate-800 hover:bg-slate-750 text-[#38bdf8] text-[10.5px] font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Database className="w-3.5 h-3.5" /> Full Schema Export
@@ -531,6 +552,10 @@ export default function App() {
                 onEnrollCourse={handleEnrollCourse}
                 onRefreshEnrollments={refreshAllData}
               />
+            )}
+
+            {activeRole === "academic" && (
+              <AcademicDashboard />
             )}
           </div>
         </main>
