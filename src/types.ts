@@ -104,3 +104,31 @@ export interface Transaction {
   gateway: string;
   date: string;
 }
+
+export interface QrSession {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  sessionTitle: string;
+  instructorId: string;
+  instructorName: string;
+  code: string;
+  createdAt: string;
+  expiresAt: string;
+  active: boolean;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  courseId: string;
+  courseTitle: string;
+  sessionId: string;
+  sessionTitle: string;
+  markedAt: string;
+  status: "Present";
+  verifiedVia: "QR Scan";
+}
+

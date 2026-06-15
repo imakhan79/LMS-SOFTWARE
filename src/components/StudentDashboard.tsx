@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   BookOpen, Video, Award, RefreshCw, MessageSquare, Plus, Save, Play, ChevronRight,
-  Shield, Camera, CheckSquare, Sparkles, BookMarked, Printer, AlertTriangle, Eye, RefreshCcw
+  Shield, Camera, CheckSquare, Sparkles, BookMarked, Printer, AlertTriangle, Eye, RefreshCcw, QrCode
 } from "lucide-react";
 import { Course, Enrollment, DiscussionMessage, ExamSubmission, CourseNote } from "../types";
 
@@ -47,6 +47,56 @@ export default function StudentDashboard({
   const [cheatLogs, setCheatLogs] = useState<string[]>([]);
   const [proctorScore, setProctorScore] = useState<number | null>(null);
   const [proctorQuizAnswers, setProctorQuizAnswers] = useState<Record<string, string>>({});
+
+  // Classroom QR Check-In States
+  const [attendanceCode, setAttendanceCode] = useState("");
+  const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [scanningActive, setScanningActive] = useState(false);
+  const [scanStatus, setScanStatus] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [scannedSession, setScannedSession] = useState<any | null>(null);
+
+  const fetchStudentAttendanceRecords = async () => {
+    try {
+      const res = await fetch("/api/attendance/records?studentId=usr-s1");
+      const data = await res.json();
+      setAttendanceLogs(data);
+    } catch (err) {
+      console.error("Failed to load student attendance logs:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudentAttendanceRecords();
+  }, []);
+
+  const handleVerifyAttendanceCode = async (codeToVerify: string) => {
+    if (!codeToVerify.trim()) return;
+    setVerificationLoading(true);
+    setScanStatus(null);
+    try {
+      const res = await fetch("/api/attendance/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: "usr-s1",
+          code: codeToVerify.trim()
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        setScanStatus({ success: false, message: data.error });
+      } else {
+        setScanStatus({ success: true, message: `Successfully verified! Welcome to class session. You've been awarded +50 XP!` });
+        setAttendanceCode("");
+        fetchStudentAttendanceRecords();
+      }
+    } catch (err) {
+      setScanStatus({ success: false, message: "Server connection failed. Could not verify attendance." });
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
 
   // AI Course Recommendations states
   const [selectedInterests, setSelectedInterests] = useState<string[]>(["Artificial Intelligence", "Information Technology"]);
@@ -318,6 +368,167 @@ export default function StudentDashboard({
                 </button>
               );
             })}
+          </div>
+
+          {/* Classroom QR Code Attendance Check-In */}
+          <div className="border-t border-gray-150 pt-4 space-y-3" id="student-qr-attendance">
+            <div className="flex items-center gap-1.5 px-1">
+              <QrCode className="w-4.5 h-4.5 text-blue-600 animate-pulse" />
+              <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Classroom Check-In</span>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-xl border border-gray-150 space-y-3">
+              {scanStatus && (
+                <div className={`p-2 rounded-lg text-[10.5px] leading-relaxed font-semibold transition-all ${scanStatus.success ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-250"}`}>
+                  <p>{scanStatus.message}</p>
+                </div>
+              )}
+
+              {/* Toggle Manual input vs Simulated Camera Lens */}
+              {!scanningActive ? (
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Enter Session Token</span>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={attendanceCode}
+                        onChange={(e) => setAttendanceCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. ATT-MATH-511"
+                        className="flex-1 bg-white border border-gray-200 text-xs px-2 py-1 rounded outline-hidden uppercase font-mono font-bold"
+                      />
+                      <button
+                        onClick={() => handleVerifyAttendanceCode(attendanceCode)}
+                        disabled={verificationLoading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 rounded-md transition-all cursor-pointer shadow-3xs"
+                      >
+                        {verificationLoading ? "..." : "Verify"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="relative flex py-1.5 items-center">
+                    <div className="flex-grow border-t border-gray-200"></div>
+                    <span className="flex-shrink mx-2 text-[9px] text-gray-400 font-bold uppercase">or scan</span>
+                    <div className="flex-grow border-t border-gray-200"></div>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setScanningActive(true);
+                      setScanStatus(null);
+                      try {
+                        const sRes = await fetch("/api/attendance/sessions");
+                        const sData = await sRes.json();
+                        const activeOne = sData.find((s: any) => s.active);
+                        if (activeOne) {
+                          setScannedSession(activeOne);
+                        } else {
+                          setScannedSession(null);
+                        }
+                      } catch(e) {}
+                    }}
+                    className="w-full py-1.5 bg-gray-950 text-white font-bold text-[10px] rounded hover:bg-black transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-3xs"
+                  >
+                    <Camera className="w-3.5 h-3.5 text-blue-400" />
+                    Open Live Scan Lens
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center bg-black px-2 py-1 rounded text-[9px] text-gray-400 font-mono">
+                    <span className="text-emerald-400 animate-pulse">● LIVE SCAN EYE</span>
+                    <button 
+                      onClick={() => setScanningActive(false)} 
+                      className="text-gray-300 hover:text-white font-semibold uppercase"
+                    >
+                      Close [x]
+                    </button>
+                  </div>
+
+                  {/* Simulated Camera Viewfinder Frame */}
+                  <div className="bg-gray-950 aspect-square rounded-lg border border-gray-800 relative overflow-hidden flex flex-col items-center justify-center text-center p-3">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-green-500/80 animate-bounce shadow-[0_0_10px_#22c55e] z-10"></div>
+                    
+                    <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 border-green-400"></div>
+                    <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 border-green-400"></div>
+                    <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 border-green-400"></div>
+                    <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 border-green-400"></div>
+
+                    {scannedSession ? (
+                      <div className="text-white space-y-2 z-5">
+                        <span className="text-[9px] font-bold text-green-400 bg-green-950/60 border border-green-500 px-2 py-0.5 rounded-full inline-block animate-pulse">
+                          QR code detected!
+                        </span>
+                        <p className="text-[10.5px] font-bold leading-tight line-clamp-2 px-1 text-gray-200">
+                          {scannedSession.sessionTitle}
+                        </p>
+                        <p className="text-[9px] text-gray-400 font-mono">Code: {scannedSession.code}</p>
+
+                        <button
+                          onClick={() => {
+                            handleVerifyAttendanceCode(scannedSession.code);
+                            setScanningActive(false);
+                          }}
+                          className="mt-2 text-[10px] font-bold bg-green-500 text-black px-3 py-1.5 rounded hover:bg-green-400 transition-all cursor-pointer w-full uppercase"
+                        >
+                          Mark Present ✓
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 space-y-2 z-5">
+                        <Camera className="w-8 h-8 text-gray-600 mx-auto animate-pulse" />
+                        <p className="text-[10px] leading-snug max-w-[130px] font-medium">Looking for active classroom QR keys...</p>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const sRes = await fetch("/api/attendance/sessions");
+                              const sData = await sRes.json();
+                              const activeOne = sData.find((s: any) => s.active);
+                              if (activeOne) {
+                                setScannedSession(activeOne);
+                              } else {
+                                alert("No active class sessions found on the system. Produce one on the Instructor Portal first.");
+                              }
+                            } catch(e){}
+                          }}
+                          className="mt-1 text-[9px] font-bold text-blue-400 border border-blue-400/40 hover:bg-blue-400/10 px-2 py-1 rounded cursor-pointer"
+                        >
+                          Check active channels
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* History index */}
+              <div className="space-y-1.5 pt-0.5">
+                <div className="flex justify-between items-center text-[9px] uppercase font-bold text-gray-400">
+                  <span>Check-In History</span>
+                  <span className="font-mono">{attendanceLogs.length} records</span>
+                </div>
+
+                <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                  {attendanceLogs.length === 0 ? (
+                    <p className="text-[9px] text-gray-400 italic py-2 text-center bg-white rounded">No checks logged yet.</p>
+                  ) : (
+                    attendanceLogs.map((log) => (
+                      <div key={log.id} className="p-1.5 border border-gray-100 bg-white rounded text-[10px] flex justify-between items-center">
+                        <div className="truncate pr-1">
+                          <span className="font-bold text-gray-700 block truncate leading-tight">{log.sessionTitle}</span>
+                          <span className="text-[8px] text-gray-400 block truncate leading-tight">{log.courseTitle}</span>
+                        </div>
+                        <span className="shrink-0 text-[8px] text-emerald-700 bg-emerald-50 px-1 rounded border border-emerald-100 uppercase tracking-wider font-semibold font-sans">
+                          Present ✓
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
 

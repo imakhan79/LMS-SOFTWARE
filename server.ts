@@ -113,6 +113,33 @@ interface DiscussionMessage {
   timestamp: string;
 }
 
+interface QrSession {
+  id: string;
+  courseId: string;
+  courseTitle: string;
+  sessionTitle: string;
+  instructorId: string;
+  instructorName: string;
+  code: string;
+  createdAt: string;
+  expiresAt: string;
+  active: boolean;
+}
+
+interface AttendanceRecord {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  courseId: string;
+  courseTitle: string;
+  sessionId: string;
+  sessionTitle: string;
+  markedAt: string;
+  status: "Present";
+  verifiedVia: "QR Scan";
+}
+
 // Global In-Memory Store
 let courses: Course[] = [
   {
@@ -277,9 +304,171 @@ let systemSettings = {
   whiteLabelDomain: "learn.mycompany.com"
 };
 
+// Seeding QR Attendance Sessions and Records
+let qrSessions: QrSession[] = [
+  {
+    id: "qrs-1",
+    courseId: "course-1",
+    courseTitle: "Introduction to Artificial Intelligence and Machine Learning",
+    sessionTitle: "Foundational Lecture on Backpropagation",
+    instructorId: "usr-i1",
+    instructorName: "Dr. Sarah Jenkins",
+    code: "ATT-NEURAL-882",
+    createdAt: "2026-06-14T10:00:00Z",
+    expiresAt: "2026-06-14T11:00:00Z",
+    active: false
+  },
+  {
+    id: "qrs-2",
+    courseId: "course-1",
+    courseTitle: "Introduction to Artificial Intelligence and Machine Learning",
+    sessionTitle: "Neural Mathematics Live Hackathon",
+    instructorId: "usr-i1",
+    instructorName: "Dr. Sarah Jenkins",
+    code: "ATT-MATH-511",
+    createdAt: "2025-06-15T09:12:00Z",
+    expiresAt: "2027-06-15T12:00:00Z", // Keeps it active for current simulator sessions
+    active: true
+  }
+];
+
+let attendanceRecords: AttendanceRecord[] = [
+  {
+    id: "attr-1",
+    studentId: "usr-s1",
+    studentName: "Alex Mercer",
+    studentEmail: "student@lms.com",
+    courseId: "course-1",
+    courseTitle: "Introduction to Artificial Intelligence and Machine Learning",
+    sessionId: "qrs-1",
+    sessionTitle: "Foundational Lecture on Backpropagation",
+    markedAt: "2026-06-14T10:11:05Z",
+    status: "Present",
+    verifiedVia: "QR Scan"
+  }
+];
+
 // ==========================================
 // REST API ENDPOINTS
 // ==========================================
+
+// QR Attendance: Get all active/inactive QR code session triggers
+app.get("/api/attendance/sessions", (req, res) => {
+  res.json(qrSessions);
+});
+
+// QR Attendance: Create a new QR code session
+app.post("/api/attendance/sessions", (req, res) => {
+  const { courseId, sessionTitle, expiresAfterMinutes } = req.body;
+  const course = courses.find(c => c.id === courseId);
+  if (!course) {
+    return res.status(404).json({ error: "Linked course not found in active LMS syllabus" });
+  }
+
+  const codeSuffix = Math.floor(100 + Math.random() * 900);
+  const codePrefix = course.title.slice(0, 5).toUpperCase().replace(/[^A-Z]/g, "X");
+  const uniqueCode = `ATT-${codePrefix}-${codeSuffix}-${Math.floor(Math.random() * 90 + 10)}`;
+
+  const createdDate = new Date();
+  const expiresDate = new Date(createdDate.getTime() + (expiresAfterMinutes || 15) * 60 * 1000);
+
+  const newSession: QrSession = {
+    id: `qrs-${Date.now()}`,
+    courseId: course.id,
+    courseTitle: course.title,
+    sessionTitle: sessionTitle || "Class Lecture Session",
+    instructorId: course.instructorId || "usr-i1",
+    instructorName: course.instructorName || "Dr. Sarah Jenkins",
+    code: uniqueCode,
+    createdAt: createdDate.toISOString(),
+    expiresAt: expiresDate.toISOString(),
+    active: true
+  };
+
+  qrSessions.push(newSession);
+  res.json(newSession);
+});
+
+// QR Attendance: Toggle active state of session manual triggers
+app.post("/api/attendance/sessions/:id/toggle", (req, res) => {
+  const { id } = req.params;
+  const session = qrSessions.find(s => s.id === id);
+  if (!session) {
+    return res.status(404).json({ error: "Attendance session reference not registered" });
+  }
+
+  session.active = !session.active;
+  res.json(session);
+});
+
+// QR Attendance: Fetch marked attendance logs
+app.get("/api/attendance/records", (req, res) => {
+  const { studentId, courseId } = req.query;
+  let records = attendanceRecords;
+  if (studentId) {
+    records = records.filter(r => r.studentId === studentId);
+  }
+  if (courseId) {
+    records = records.filter(r => r.courseId === courseId);
+  }
+  res.json(records);
+});
+
+// QR Attendance: Student Scopes Code Verification & Instant Attendance marking
+app.post("/api/attendance/scan", (req, res) => {
+  const { studentId, code } = req.body;
+  
+  const student = users.find(u => u.id === studentId);
+  if (!student) {
+    return res.status(404).json({ error: "Student credential profile not registered on active roster" });
+  }
+
+  const session = qrSessions.find(s => s.code === code.trim());
+  if (!session) {
+    return res.status(404).json({ error: "QR Code Token represents an unrecognized session pass." });
+  }
+
+  if (!session.active) {
+    return res.status(400).json({ error: "This QR Attendance session is no longer active." });
+  }
+
+  const expirationTime = new Date(session.expiresAt).getTime();
+  const now = new Date().getTime();
+  if (now > expirationTime) {
+    return res.status(400).json({ error: "QR code has expired. Access denied." });
+  }
+
+  const alreadySubmitted = attendanceRecords.some(r => r.studentId === studentId && r.sessionId === session.id);
+  if (alreadySubmitted) {
+    return res.status(400).json({ error: "Attendance already verified for this session." });
+  }
+
+  const record: AttendanceRecord = {
+    id: `attr-${Date.now()}`,
+    studentId: student.id,
+    studentName: student.name,
+    studentEmail: student.email,
+    courseId: session.courseId,
+    courseTitle: session.courseTitle,
+    sessionId: session.id,
+    sessionTitle: session.sessionTitle,
+    markedAt: new Date().toISOString(),
+    status: "Present",
+    verifiedVia: "QR Scan"
+  };
+
+  attendanceRecords.push(record);
+  
+  // Award gamification Experience Points instantly
+  student.xp = (student.xp || 0) + 50;
+
+  res.json({
+    success: true,
+    record,
+    xpAwarded: 50,
+    newTotalXp: student.xp
+  });
+});
 
 // GET standard dashboard metrics for Super Admin
 app.get("/api/dashboard/stats", (req, res) => {
@@ -975,6 +1164,163 @@ Provide the output in raw JSON matching this schema:
   } catch (error: any) {
     console.error("Gemini course recommendation error:", error);
     res.status(500).json({ error: "Failed to generate AI course recommendations." });
+  }
+});
+
+// 5. Semantic Search & Career/Skill Gap Filter System
+app.post("/api/ai/marketplace-search", async (req, res) => {
+  const { query, category, difficulty } = req.body;
+
+  // Filter courses by category & difficulty first if selected (optional)
+  let filteredCatalog = courses.filter(c => c.published);
+  if (category && category !== "All") {
+    filteredCatalog = filteredCatalog.filter(c => c.category === category);
+  }
+  if (difficulty && difficulty !== "All") {
+    filteredCatalog = filteredCatalog.filter(c => c.difficulty === difficulty);
+  }
+
+  const normalizedQuery = (query || "").trim();
+
+  // Handle case where we don't have Gemini Key
+  if (!ai) {
+    const results = filteredCatalog.map(c => {
+      let matchScore = 80; // default baseline
+      let targetedSkills: string[] = [];
+
+      if (c.category === "Artificial Intelligence") {
+        targetedSkills = ["Prompt Engineering", "Large Language Models", "Model Fine-Tuning"];
+      } else if (c.category === "Software Engineering") {
+        targetedSkills = ["TypeScript Systems", "Relational Database Design", "REST API Architectures"];
+      } else if (c.category === "Cybersecurity") {
+        targetedSkills = ["Penetration Testing Security", "IAM Protocol Vulnerabilities", "Threat Intelligence"];
+      } else if (c.category === "Cloud Computing") {
+        targetedSkills = ["Docker Containerization", "Kubernetes Native Deployment", "AWS Cloud Infrastructure"];
+      } else {
+        targetedSkills = [c.category, `${c.difficulty} Competencies`];
+      }
+
+      if (normalizedQuery) {
+        let keywordHits = 0;
+        const keywords = normalizedQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        
+        for (const kw of keywords) {
+          if (c.title.toLowerCase().includes(kw) || 
+              c.description.toLowerCase().includes(kw) || 
+              c.category.toLowerCase().includes(kw) ||
+              c.outcomes.some(o => o.toLowerCase().includes(kw))) {
+            keywordHits++;
+          }
+        }
+        
+        if (keywordHits > 0) {
+          matchScore = 75 + (keywordHits * 8);
+        } else {
+          // Soft match based on difficulty matching or baseline
+          matchScore = Math.max(30, 55 - (c.difficulty === "Advanced" ? 10 : 0));
+        }
+      }
+
+      matchScore = Math.min(100, matchScore);
+      let suitabilityRating: "High" | "Medium" | "Low" = "Medium";
+      if (matchScore >= 80) suitabilityRating = "High";
+      else if (matchScore < 60) suitabilityRating = "Low";
+
+      const goalVerb = normalizedQuery ? `addressing your interest in "${normalizedQuery}"` : "advancing your technical mastery";
+      const fitReason = `Provides excellent structural alignment for ${goalVerb}, helping you develop crucial skills like ${targetedSkills.slice(0, 2).join(" and ")} precisely at the ${c.difficulty} complexity index.`;
+
+      return {
+        courseId: c.id,
+        matchScore,
+        careerFitReason: fitReason,
+        targetedSkills,
+        suitabilityRating
+      };
+    });
+
+    // Sort by match score descending
+    results.sort((a, b) => b.matchScore - a.matchScore);
+
+    return res.json({
+      results,
+      overallAnalysis: normalizedQuery 
+        ? `Simulation Analysis: Focused search on "${normalizedQuery}" shows strong alignment with ${results.filter(r => r.suitabilityRating === "High").length} courses. Gaps in ${normalizedQuery} are resolved using hands-on outcomes.`
+        : "Displaying complete course matches. Type custom career goals or skill gaps to trigger full semantic alignment ranking."
+    });
+  }
+
+  try {
+    const model = "gemini-3.5-flash";
+    const prompt = `You are a professional LMS Semantic Matcher & Career Architect.
+Your task is to analyze the user's catalog search or career goal or skill gap query, and evaluate how perfectly each course in the catalog fits this query.
+
+User Query (Career Goal / Skill Gap / Keywords): "${normalizedQuery || "General tech specialization and career growth"}"
+
+LMS Existing Catalog:
+${JSON.stringify(filteredCatalog.map(c => ({
+  id: c.id,
+  title: c.title,
+  category: c.category,
+  difficulty: c.difficulty,
+  description: c.description,
+  outcomes: c.outcomes
+})))}
+
+Tasks:
+1. For every course in the catalog, determine a "matchScore" (0 to 100) based on how well the course's content, difficulty, and outcomes can resolve the student's career gap or support their career goal/query "${normalizedQuery}". Be realistic: if a course is highly relevant, rate it 80-100. If it is only tangentially related, rate it 40-70. If totally unrelated, rate it 10-39.
+2. Formulate "careerFitReason" - a clear, client-centric, one-to-two sentence explanation of how the course maps directly to their specific query (how it bridges the gap or serves their career path).
+3. Identify 2-3 specific "targetedSkills" (e.g. "REST API Integration", "Docker Containerization", "Data Modeling") that this course teaches to close their skill gap.
+4. Set "suitabilityRating" as "High", "Medium", or "Low" based on the matchScore (>=80 is "High", 60-79 is "Medium", <60 is "Low").
+5. Write a helpful "overallAnalysis" (2 sentences) summarizing how the overall catalog matches the student's career path/skill gaps, and advising on their best first step.
+
+Provide the output in raw JSON matching this schema:
+{
+  "results": [
+    {
+      "courseId": "string course ID",
+      "matchScore": 85, // integer 0 to 100
+      "careerFitReason": "Detailed explanation of career or skill alignment.",
+      "targetedSkills": ["Skill A", "Skill B"],
+      "suitabilityRating": "High"
+    }
+  ],
+  "overallAnalysis": "A cohesive overall summary and recommendation."
+}`;
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          required: ["results", "overallAnalysis"],
+          properties: {
+            results: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                required: ["courseId", "matchScore", "careerFitReason", "targetedSkills", "suitabilityRating"],
+                properties: {
+                  courseId: { type: Type.STRING },
+                  matchScore: { type: Type.INTEGER },
+                  careerFitReason: { type: Type.STRING },
+                  targetedSkills: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  suitabilityRating: { type: Type.STRING }
+                }
+              }
+            },
+            overallAnalysis: { type: Type.STRING }
+          }
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    res.json(parsed);
+  } catch (error: any) {
+    console.error("Gemini marketplace search error:", error);
+    res.status(552).json({ error: "Failed to perform semantic AI search." });
   }
 });
 
